@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.UI.WebControls;
@@ -15,6 +15,10 @@ using System.Diagnostics;
 using PdfSharp.Drawing;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using System.Net.Http.Headers;
 
 namespace CxQA
 {
@@ -22,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.13";
+        string VERSION = "2.14";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -275,7 +279,7 @@ namespace CxQA
             }
         }
 
-        protected void login_Click(object sender, EventArgs e)
+        protected async void login_Click(object sender, EventArgs e)
         {
             CxWSResponseLoginData login = getSessionID(user.Text, pass.Text);
             if (login != null)
@@ -284,6 +288,10 @@ namespace CxQA
                 {
                     loginerror.Text = "";
                     ViewState["session"] = login.SessionId;
+
+                    String token = await authREST(user.Text, pass.Text);
+                    ViewState["RESTTOKEN"] = getRESTToken(token);
+
                     ViewState["sendto"] = login.Email;
                     log.Info("Email address of requester:  " + login.Email);
                     login_form.Visible = false;
@@ -569,7 +577,7 @@ namespace CxQA
             return String.Format("{0:d} {0:t}", d);
         }
 
-        private string getVersion(long scanID)
+        private string getVersion_OLD(long scanID)
         {
             try
             {
@@ -592,7 +600,7 @@ namespace CxQA
             return "Version not found";
         }
 
-        protected bool getComparison(string [] scanIDs)
+        protected async void getComparison(string [] scanIDs)
         {
             bool low = lows.Checked;
             DataTable dt = new DataTable();
@@ -624,7 +632,31 @@ namespace CxQA
                 dt.Rows.Add("Preset", old_scan.Preset.ToString(), new_scan.Preset.ToString());
                 dt.Rows.Add("Source Origin", old_scan.Path.ToString(), new_scan.Path.ToString());
                 dt.Rows.Add("Scan Type", old_scan.ScanType.ToString(), new_scan.ScanType.ToString());
-                dt.Rows.Add("Cx Version", getVersion(oldscan), getVersion(newscan));
+
+                string old_version = "", new_version = "";
+                try
+                {
+                    String json = await getVersion(oldscan);
+                    dynamic t =  JObject.Parse(json);
+                    old_version = t.scanState.cxVersion;
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+                }
+
+                try
+                {
+                    String json = await getVersion(newscan);
+                    dynamic t = JObject.Parse(json);
+                    new_version = t.scanState.cxVersion;
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+                }
+
+                dt.Rows.Add("Cx Version", old_version, new_version);
                 dt.Rows.Add("Is Incremental", old_scan.IsIncremental.ToString(), new_scan.IsIncremental.ToString());
                 dt.Rows.Add("Scan Comment", old_scan.Comment.ToString() == "" ? " " : old_scan.Comment.ToString(), new_scan.Comment.ToString() == "" ? " " : new_scan.Comment.ToString());
 
@@ -783,7 +815,7 @@ namespace CxQA
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
 
-            return true;
+            //return true;
         }
 
         private bool checkList(long i)
@@ -1084,6 +1116,74 @@ namespace CxQA
                 alert.Visible = true;
                 message.Text = "Failed to request the report.  Please contact your administrator.";
             }
+        }
+
+        /*REST*/
+
+        private String getRESTToken(String json)
+        {
+            try
+            { 
+                dynamic t = JObject.Parse(json);
+                return t.access_token;
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+            }
+            return "ERROR";
+        }
+
+        private async Task<string> authREST(String un, String pw)
+        {
+            try
+            {
+                HttpClient client = new HttpClient();
+                String url = Cxserver + "/cxrestapi/auth/identity/connect/token";
+                var values = new Dictionary<string, string>
+                {
+                    { "username", un },
+                    { "password", pw },
+                    { "grant_type", "password" },
+                    { "scope", "sast_rest_api" },
+                    { "client_id", "resource_owner_client" },
+                    { "client_secret", "014DF517-39D1-4453-B7B3-9930C563627C" }
+                };
+
+                var content = new FormUrlEncodedContent(values);
+                var response = await client.PostAsync(url, content);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                return responseString;
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+            }
+
+            return "Error";
+        }
+
+        private async Task<string> getVersion(long scanID)
+        {
+            try
+            {
+                HttpClient client = new HttpClient();
+                String url = Cxserver + "/cxrestapi/sast/scans/" + scanID;
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ViewState["RESTTOKEN"].ToString());
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.GetAsync(url);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                return responseString;
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+            }
+
+            return "Error";
         }
     }
 
