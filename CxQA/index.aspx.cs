@@ -26,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.14";
+        string VERSION = "2.14.2";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -289,7 +289,13 @@ namespace CxQA
                     loginerror.Text = "";
                     ViewState["session"] = login.SessionId;
 
-                    String token = await authREST(user.Text, pass.Text);
+                    String un = "";
+                    if (codomain.Text.Equals("Application"))
+                        un = user.Text;
+                    else
+                        un = codomain.Text + "\\" + user.Text;
+
+                    String token = await authREST(un, pass.Text);
                     ViewState["RESTTOKEN"] = getRESTToken(token);
 
                     ViewState["sendto"] = login.Email;
