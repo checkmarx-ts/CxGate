@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using OfficeOpenXml;
 using System.IO;
 using extract.CX;
@@ -11,8 +11,9 @@ namespace extract
 {
     class Program
     {
-        readonly static string VERSION = "1.2";
+        readonly static string VERSION = "1.4";
         static string session;
+        static string token;
         static string project;
         static string toEmail;
         static string path;
@@ -58,22 +59,29 @@ namespace extract
                     int index = 0;
                     foreach(long pid in getProjects())
                     {
-                        Console.WriteLine("Getting scan ID.");
-                        long scanID = getLastScan(pid.ToString(), project);
-
-                        if (scanID != -1)
+                        try
                         {
-                            if (index == 0)
+                            Console.WriteLine("Getting scan ID.");
+                            long scanID = getLastScan(pid.ToString(), project);
+
+                            if (scanID != -1)
                             {
-                                Console.WriteLine("Getting scan results for scan ID:  " + scanID);
-                                t = getScanResults(scanID);
-                                index++;
+                                if (index == 0)
+                                {
+                                    Console.WriteLine("Getting scan results for scan ID:  " + scanID);
+                                    t = getScanResults(scanID);
+                                    index++;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Getting scan results for scan ID:  " + scanID);
+                                    t.Merge(getScanResults(scanID));
+                                }
                             }
-                            else
-                            {
-                                Console.WriteLine("Getting scan results for scan ID:  " + scanID);
-                                t.Merge(getScanResults(scanID));
-                            }
+                        }
+                        catch(Exception ex)
+                        {
+                            Console.WriteLine("Problem fetching:  " + pid + Environment.NewLine + ex.StackTrace);
                         }
                     }
                     Console.WriteLine("Building excel file.");
@@ -323,7 +331,7 @@ namespace extract
         private static void buildXLSX(DataTable table)
         {
             try
-            { 
+            {
                 using (ExcelPackage excel = new ExcelPackage())
                 {
                     excel.Workbook.Worksheets.Add("Cx Extract");
@@ -342,7 +350,58 @@ namespace extract
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Problem building Excel report." + Environment.NewLine + ex.StackTrace);
+                Console.WriteLine("Problem building Excel report.  Trying csv." + Environment.NewLine + ex.StackTrace);
+                buildCSV(table);
+            }
+        }
+
+        private static void buildCSV(DataTable table)
+        {
+            try
+            {
+                FileInfo csvFile = new FileInfo(path.Replace(".xlsx",".csv"));
+                path = csvFile.ToString();
+
+                StreamWriter sw = new StreamWriter(path);
+                
+                for (int i = 0; i < table.Columns.Count; i++)
+                {
+                    sw.Write(table.Columns[i]);
+                    if (i < table.Columns.Count - 1)
+                    {
+                        sw.Write(",");
+                    }
+                }
+                sw.Write(sw.NewLine);
+                foreach (DataRow dr in table.Rows)
+                {
+                    for (int i = 0; i < table.Columns.Count; i++)
+                    {
+                        if (!Convert.IsDBNull(dr[i]))
+                        {
+                            string value = dr[i].ToString();
+                            if (value.Contains(","))
+                            {
+                                value = String.Format("\"{0}\"", value);
+                                sw.Write(value);
+                            }
+                            else
+                            {
+                                sw.Write(dr[i].ToString());
+                            }
+                        }
+                        if (i < table.Columns.Count - 1)
+                        {
+                            sw.Write(",");
+                        }
+                    }
+                    sw.Write(sw.NewLine);
+                }
+                sw.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Problem building Csv report." + Environment.NewLine + ex.StackTrace);
             }
         }
 
