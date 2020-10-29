@@ -26,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.14.2";
+        string VERSION = "2.15";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -38,7 +38,9 @@ namespace CxQA
         bool showDetails = false;
         string commentsFilterRegEx = "";
         bool ignoreFilter = false;
-        
+        bool debug = false;
+
+
         List<queryName> names = new List<queryName>();
 
         protected void Page_Load(object sender, EventArgs e)
@@ -48,6 +50,7 @@ namespace CxQA
             baseline_suffix_p = "_PRD";
             baseline_suffix_q = "_QA";
 
+            try { debug = Boolean.Parse(getProperty("debug")); } catch { debug = false; }
             try { showDetails = Boolean.Parse(getProperty("showDetailsReport")); } catch { showDetails = false; }
             try { domain = getProperty("domain"); } catch { domain = ""; }
             try { printwidth = getProperty("pagewidthinpixels"); } catch { printwidth = "1000"; }
@@ -1091,7 +1094,9 @@ namespace CxQA
                     " \"" + HttpContext.Current.Server.MapPath("~/") + "reports\\CxExtract_" + secondsSinceEpoch + ".xlsx\" " + Cxserver + " \"" +
                     HttpContext.Current.Server.MapPath("~/") + @"\cxqa.properties" + "\"";
 
-                //log.Info(process.StartInfo.Arguments.ToString());
+                if(debug)
+                    log.Info(process.StartInfo.Arguments.ToString());
+
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
