@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="index.aspx.cs" Inherits="CxQA.index" EnableEventValidation="false" Async="true" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="index.aspx.cs" Inherits="CxQA.index" EnableEventValidation="false" Async="true" %>
 
 <!DOCTYPE html>
 
