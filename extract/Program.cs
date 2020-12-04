@@ -10,7 +10,7 @@ namespace extract
 {
     class Program
     {
-        readonly static string VERSION = "1.6";
+        readonly static string VERSION = "1.5";
         private static log4net.ILog log;
         static string session;
         static string project;
@@ -82,8 +82,7 @@ namespace extract
                         {
                             try
                             {
-                                long scanID = getLastScan(pid.ToString(), null);
-                                //long scanID = getLastScan(pid.ToString(), project); 
+                                long scanID = getLastScan(pid.ToString(), project); 
                                 if (scanID != -1)
                                 {
                                     rows.Clear();
