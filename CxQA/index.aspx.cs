@@ -26,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.17";
+        string VERSION = "2.18";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -135,6 +135,7 @@ namespace CxQA
                 CxPortalWebService SOAPservice = new CxPortalWebService();
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData(ViewState["session"].ToString());
+                //****TRUNCATES TEAM NAME; SEE GETPROJECTSANDTEAMSV2
                 foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
                 {
                     if (!tlist.Contains(p.TeamName + "\\" + p.ProjectName))
@@ -147,6 +148,39 @@ namespace CxQA
                     {
                         tlist.Add(p.TeamName);
                         extract_param.Items.Insert(tlist.Count-1, new ListItem(p.TeamName, p.TeamName.ToString()));
+                    }
+                }
+
+                SortListControl(extract_param, true);
+                extract_param.Items.Insert(0, new ListItem("Select a project or team...", "-1"));
+            }
+            catch (Exception e)
+            {
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+        }
+
+        private void getProjectsAndTeamsv2()
+        {
+            List<string> tlist = new List<string>();
+            try
+            {
+                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+                CxPortalWebService SOAPservice = new CxPortalWebService();
+                SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
+                CxWSResponseProjectsDisplayData projects = SOAPservice.GetProjectsDisplayData(ViewState["session"].ToString());
+                foreach (ProjectDisplayData p in projects.projectList)
+                {
+                    if (!tlist.Contains(p.Group + "\\" + p.ProjectName))
+                    {
+                        tlist.Add(p.Group + "\\" + p.ProjectName);
+                        extract_param.Items.Add(new ListItem(p.Group + "\\" + p.ProjectName, p.projectID.ToString()));
+                    }
+
+                    if (!tlist.Contains(p.Group))
+                    {
+                        tlist.Add(p.Group);
+                        extract_param.Items.Insert(tlist.Count - 1, new ListItem(p.Group, p.Group.ToString()));
                     }
                 }
 
@@ -305,7 +339,7 @@ namespace CxQA
                     log.Info("Email address of requester:  " + login.Email);
                     login_form.Visible = false;
                     Get_Projects();
-                    getProjectsAndTeams();
+                    getProjectsAndTeamsv2();
                     projects_form.Visible = true;
                     log.Info(user.Text + " logged in.");
                 }
