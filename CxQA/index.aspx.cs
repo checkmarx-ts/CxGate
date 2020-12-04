@@ -26,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.15";
+        string VERSION = "2.17";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -639,7 +639,7 @@ namespace CxQA
                 dt.Rows.Add("Project Name", old_scan.ProjectName.ToString(), new_scan.ProjectName.ToString());
                 dt.Rows.Add("Team", old_scan.TeamName.ToString(), new_scan.TeamName.ToString());
                 dt.Rows.Add("Preset", old_scan.Preset.ToString(), new_scan.Preset.ToString());
-                dt.Rows.Add("Source Origin", old_scan.Path.ToString(), new_scan.Path.ToString());
+                dt.Rows.Add("Source Origin", old_scan.Path.ToString().Replace(";","; "), new_scan.Path.ToString().Replace(";", "; "));
                 dt.Rows.Add("Scan Type", old_scan.ScanType.ToString(), new_scan.ScanType.ToString());
 
                 string old_version = "", new_version = "";
@@ -700,6 +700,7 @@ namespace CxQA
                 dt.Rows.Add("Custom Field Value(s)", ViewState["CustomFields"].ToString() == "" ? " " : ViewState["CustomFields"].ToString(), ViewState["CustomFields"].ToString() == "" ? " " : ViewState["CustomFields"].ToString());
 
                 comparison.DataSource = dt;
+                comparison.Attributes.Add("style", "word-wrap:break-word; width=950px");
                 comparison.DataBind();
 
                 scans_form.Visible = false;
@@ -1092,30 +1093,15 @@ namespace CxQA
                 process.StartInfo.FileName = HttpContext.Current.Server.MapPath("~/") + "extract.exe";
                 process.StartInfo.Arguments = ViewState["session"].ToString() + " " + extract_param.SelectedValue + " " + ViewState["sendto"] + 
                     " \"" + HttpContext.Current.Server.MapPath("~/") + "reports\\CxExtract_" + secondsSinceEpoch + ".xlsx\" " + Cxserver + " \"" +
-                    HttpContext.Current.Server.MapPath("~/") + @"\cxqa.properties" + "\"";
+                    HttpContext.Current.Server.MapPath("~/") + @"cxqa.properties" + "\"";
 
                 if(debug)
                     log.Info(process.StartInfo.Arguments.ToString());
 
                 process.StartInfo.UseShellExecute = false;
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.CreateNoWindow = true;
-                process.EnableRaisingEvents = true;
-                process.Exited += (psender, args) =>
-                {
-                    while (!process.StandardOutput.EndOfStream)
-                    {
-                        string line = process.StandardOutput.ReadLine();
-                        log.Info(line);
-                    }
-
-                    while (!process.StandardError.EndOfStream)
-                    {
-                        string line = process.StandardError.ReadLine();
-                        log.Info(line);
-                    }
-                };
+                process.StartInfo.RedirectStandardOutput = false;
+                process.StartInfo.RedirectStandardError = false;
+                process.StartInfo.CreateNoWindow = false;
                 process.Start();
 
                 alert.Visible = true;
