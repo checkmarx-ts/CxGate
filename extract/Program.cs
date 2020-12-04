@@ -4,16 +4,15 @@ using System.IO;
 using extract.CX;
 using System.Data;
 using System.Collections.Generic;
-using System.Net;
 using System.Net.Mail;
 
 namespace extract
 {
     class Program
     {
-        readonly static string VERSION = "1.4";
+        readonly static string VERSION = "1.6";
+        private static log4net.ILog log;
         static string session;
-        static string token;
         static string project;
         static string toEmail;
         static string path;
@@ -21,79 +20,106 @@ namespace extract
         static string Cxserver;
         static string projectName;
         static string config;
+        static FileInfo csvFile;
+        static List<String> rows = new List<String>();
 
         static void Main(string[] args)
         {
-            Console.WriteLine("extract v" + VERSION);
             if (args.Length == 6)
             {
-                Console.WriteLine("Recieved extract request.");
+                config = args[5];
+                Console.WriteLine(config.Substring(0, config.LastIndexOf("\\")) + "\\log4net_extract.config");
+                log4net.Config.XmlConfigurator.Configure(new FileInfo(config.Substring(0, config.LastIndexOf("\\")) + "\\log4net_extract.config"));
+                log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
+                log.Info("Recieved extract request.");
+                log.Info("extract v" + VERSION);
                 
                 session = args[0];
                 project = args[1];
-                Console.WriteLine("Project / Team:  " + project);
+                log.Info("Project / Team:  " + project);
                 toEmail = args[2];
-                Console.WriteLine("Requested by / Send to:  " + toEmail);
+                log.Info("Requested by / Send to:  " + toEmail);
                 path = args[3];
-                Console.WriteLine("Report path:  " + path);
                 Cxserver = args[4];
                 try { Int32.Parse(project); isProject = true; }
                 catch { isProject = false; }
-                config = args[5];
-                Console.WriteLine("isProject:  " + isProject);
+                
+                log.Info("isProject:  " + isProject);
 
                 if (isProject)
                 {
-                    Console.WriteLine("Getting scan ID.");
+                    log.Info("Getting scan ID.");
                     long scanID = getLastScan(project, null);
-                    Console.WriteLine("Getting scan results for scan ID:  " + scanID);
+                    log.Info("Getting scan results for scan ID:  " + scanID);
                     DataTable t = getScanResults(scanID);
-                    Console.WriteLine("Building excel file.");
+                    log.Info("Building excel file.");
                     buildXLSX(t);
-                    Console.WriteLine("Sending export to:  " + toEmail);
+                    log.Info("Sending export to:  " + toEmail);
                     sendMail();
                 }
                 else //is a team, not a project
                 {
-                    DataTable t = new DataTable();
-                    int index = 0;
-                    foreach(long pid in getProjects())
+                    log.Info("Getting scan results for team:  " + project);
+                    csvFile = new FileInfo(path.Replace(".xlsx", ".csv"));
+                    try
                     {
-                        try
-                        {
-                            Console.WriteLine("Getting scan ID.");
-                            long scanID = getLastScan(pid.ToString(), project);
+                        csvFile.Delete();
+                    }
+                    catch { }
 
-                            if (scanID != -1)
+                    path = csvFile.ToString();
+                    log.Info("Building CSV");
+
+                    try
+                    {
+                        using (StreamWriter sw = new StreamWriter(path, true))
+                        {
+                            sw.WriteLine("Query,State,Source File,Source Name,Destination File,Destination Name,Query ID,Path ID,Source Line,Destination Line,Deep Link,Project Name,Severity,Query Version,Comments");
+                        }
+
+                        foreach (long pid in getProjects())
+                        {
+                            try
                             {
-                                if (index == 0)
+                                long scanID = getLastScan(pid.ToString(), null);
+                                //long scanID = getLastScan(pid.ToString(), project); 
+                                if (scanID != -1)
                                 {
-                                    Console.WriteLine("Getting scan results for scan ID:  " + scanID);
-                                    t = getScanResults(scanID);
-                                    index++;
+                                    rows.Clear();
+                                    //log.Info("Getting scan results for scan ID:  " + scanID);
+                                    getScanResultsV2(scanID);
+                                    try
+                                    {
+                                        using (StreamWriter sw = new StreamWriter(path, true))
+                                        {
+                                            foreach (String s in rows)
+                                                sw.WriteLine(s);
+                                        }
+                                    }
+                                    catch (Exception e) { log.Error("Could not write to CSV file.  " + e.Message + Environment.NewLine + e.StackTrace); }
                                 }
                                 else
                                 {
-                                    Console.WriteLine("Getting scan results for scan ID:  " + scanID);
-                                    t.Merge(getScanResults(scanID));
+                                    log.Info("No last scan for pid:  " + pid);
                                 }
                             }
+                            catch (Exception ex)
+                            {
+                                log.Error("Problem fetching:  " + pid + Environment.NewLine + ex.StackTrace);
+                            }
                         }
-                        catch(Exception ex)
-                        {
-                            Console.WriteLine("Problem fetching:  " + pid + Environment.NewLine + ex.StackTrace);
-                        }
+
+                        log.Info("Sending export to:  " + toEmail);
+                        sendMail();
                     }
-                    Console.WriteLine("Building excel file.");
-                    buildXLSX(t);
-                    Console.WriteLine("Sending export to:  " + toEmail);
-                    sendMail();
+                    catch (Exception ex) { log.Error("Problem building CSV for team.  " + ex.Message + Environment.NewLine + ex.StackTrace); }
                 }
             }
             else
-                Console.WriteLine("Not enough parameters supplied to generate Cx extract.");
+                log.Info("Not enough parameters supplied to generate Cx extract.");
 
-            Console.WriteLine("Extract process completed.");
+            log.Info("Extract process completed.");
             Environment.Exit(0);
         }
 
@@ -117,7 +143,7 @@ namespace extract
                 try { smtpPassword = getProperty("smtpPassword"); } catch { smtpPassword = ""; }
             }
 
-            Console.WriteLine("Mail parameters:  [host:{0}, port:{1}, sendFrom:{2}, smtpUser:{3}, defaultCred:{4}, SSL:{5}, toEmail:{6}", smtpHost, smtpPort, sendFrom, smtpUsername, defaultCred, enableSSL, toEmail);
+            log.Info($"Mail parameters:  [host:{smtpHost}, port:{smtpPort}, sendFrom:{sendFrom}, smtpUser:{smtpUsername}, defaultCred:{defaultCred}, SSL:{enableSSL}, toEmail:{toEmail}]");
 
             try
             {
@@ -125,12 +151,15 @@ namespace extract
                 SmtpClient SmtpServer = new SmtpClient(smtpHost);
                 mail.From = new MailAddress(sendFrom);
                 mail.To.Add(toEmail);
-                mail.Subject = "Checkmarx Report for " + projectName;
+                if(isProject)
+                    mail.Subject = "Checkmarx Report for " + projectName;
+                else
+                    mail.Subject = "Checkmarx Report for " + project;
 
                 path = path.Substring(path.LastIndexOf("\\")+1);
 
                 mail.Body = "Data export is available here:  " + server + "/CxGate/reports/" + path;
-                Console.WriteLine("Email body:  " + mail.Body);
+                log.Info("Email body:  " + mail.Body);
 
                 //System.Net.Mail.Attachment attachment;
                 //attachment = new System.Net.Mail.Attachment(path);
@@ -152,7 +181,7 @@ namespace extract
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Problem sending email.  " + ex.Message + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem sending email.  " + ex.Message + Environment.NewLine + ex.StackTrace);
                 Environment.Exit(-1);
             }
         }
@@ -175,7 +204,7 @@ namespace extract
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Problem getting projects." + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem getting projects." + Environment.NewLine + ex.StackTrace);
             }
 
             return pIDs;
@@ -186,7 +215,7 @@ namespace extract
             DataTable table = new DataTable();
             try
             {
-                Console.WriteLine("Getting queries for scan:  " + scanID);
+                //log.Info("Getting queries for scan:  " + scanID);
                 List<(long, string)> queries = getQueriesForScan(scanID);
             
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
@@ -268,9 +297,96 @@ namespace extract
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Problem getting scan results." + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem getting scan results." + Environment.NewLine + ex.StackTrace);
             }
             return table;
+        }
+
+        private static void getScanResultsV2(long scanID)
+        {
+            try
+            {
+                //log.Info("Getting queries for scan:  " + scanID);
+                List<(long, string)> queries = getQueriesForScan(scanID);
+
+                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+                CxPortalWebService SOAPservice = new CxPortalWebService();
+                SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
+                CxWSResponceScanResults sr = SOAPservice.GetResultsForScan(session, scanID);
+
+                foreach (CxWSSingleResultData d in sr.Results)
+                {
+                    string severity = "Unknown"; string state = "Other"; string queryName = "Unknown";
+                    switch (d.Severity.ToString())
+                    {
+                        case "0":
+                            severity = "Informational";
+                            break;
+                        case "1":
+                            severity = "Low";
+                            break;
+                        case "2":
+                            severity = "Medium";
+                            break;
+                        case "3":
+                            severity = "High";
+                            break;
+                    }
+
+                    switch (d.State.ToString())
+                    {
+                        case "0":
+                            state = "To Verify";
+                            break;
+                        case "1":
+                            state = "Not Exploitable";
+                            break;
+                        case "2":
+                            state = "Confirmed";
+                            break;
+                        case "3":
+                            state = "Urgent";
+                            break;
+                        case "4":
+                            state = "Proposed Not Exploitable";
+                            break;
+                    }
+
+                    string deeplink = Cxserver + "/CxWebClient/ViewerMain.aspx?scanid=" + scanID + "&projectid=" + project + "&pathid=" + d.PathId;
+
+                    string[] comment = d.Comment.Split('ÿ');
+
+                    foreach ((long, string) o in queries)
+                    {
+                        if (o.Item1 == d.QueryId)
+                        {
+                            queryName = o.Item2;
+                            break;
+                        }
+                    }
+
+                    String[] rowvalues = new String[] { queryName, state, d.SourceFile, d.SourceObject, d.DestFile, d.DestObject, d.QueryId.ToString(), d.PathId.ToString(),
+                                                d.SourceLine.ToString(), d.DestLine.ToString(), deeplink, projectName, severity, d.QueryVersionCode.ToString(), comment[0] };
+
+                    String row = String.Empty;
+                    foreach (String s in rowvalues)
+                        row += quote(s);
+
+                    rows.Add(row);
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Problem getting scan results." + Environment.NewLine + ex.StackTrace);
+            }
+        }
+
+        private static String quote(String s)
+        {
+            if (s.Length > 0)
+                return "\"" + s + "\",";
+            else
+                return "";
         }
 
         private static List<(long, string)> getQueriesForScan(long scanID)
@@ -289,7 +405,7 @@ namespace extract
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Problem getting query names." + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem getting query names." + Environment.NewLine + ex.StackTrace);
             }
 
             return queries;
@@ -322,7 +438,7 @@ namespace extract
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Problem getting last scan." + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem getting last scan." + Environment.NewLine + ex.StackTrace);
             }
 
             return -1;
@@ -350,58 +466,7 @@ namespace extract
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Problem building Excel report.  Trying csv." + Environment.NewLine + ex.StackTrace);
-                buildCSV(table);
-            }
-        }
-
-        private static void buildCSV(DataTable table)
-        {
-            try
-            {
-                FileInfo csvFile = new FileInfo(path.Replace(".xlsx",".csv"));
-                path = csvFile.ToString();
-
-                StreamWriter sw = new StreamWriter(path);
-                
-                for (int i = 0; i < table.Columns.Count; i++)
-                {
-                    sw.Write(table.Columns[i]);
-                    if (i < table.Columns.Count - 1)
-                    {
-                        sw.Write(",");
-                    }
-                }
-                sw.Write(sw.NewLine);
-                foreach (DataRow dr in table.Rows)
-                {
-                    for (int i = 0; i < table.Columns.Count; i++)
-                    {
-                        if (!Convert.IsDBNull(dr[i]))
-                        {
-                            string value = dr[i].ToString();
-                            if (value.Contains(","))
-                            {
-                                value = String.Format("\"{0}\"", value);
-                                sw.Write(value);
-                            }
-                            else
-                            {
-                                sw.Write(dr[i].ToString());
-                            }
-                        }
-                        if (i < table.Columns.Count - 1)
-                        {
-                            sw.Write(",");
-                        }
-                    }
-                    sw.Write(sw.NewLine);
-                }
-                sw.Close();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Problem building Csv report." + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem building Excel report." + Environment.NewLine + ex.StackTrace);
             }
         }
 
@@ -421,12 +486,11 @@ namespace extract
             }//end try
             catch (Exception ex)
             {
-                Console.WriteLine("Problem getting SMTP property:  " + property + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace);
+                log.Error("Problem getting SMTP property:  " + property + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace);
                 Environment.Exit(-1);
             }//end catch
 
             return "";
         }
-
     }
 }
