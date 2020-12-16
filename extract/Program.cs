@@ -10,7 +10,7 @@ namespace extract
 {
     class Program
     {
-        readonly static string VERSION = "1.5";
+        readonly static string VERSION = "1.6";
         private static log4net.ILog log;
         static string session;
         static string project;
@@ -78,7 +78,7 @@ namespace extract
                             sw.WriteLine("Query,State,Source File,Source Name,Destination File,Destination Name,Query ID,Path ID,Source Line,Destination Line,Deep Link,Project Name,Severity,Query Version,Comments");
                         }
 
-                        foreach (long pid in getProjects())
+                        foreach (long pid in getProjects(project))
                         {
                             try
                             {
@@ -185,7 +185,7 @@ namespace extract
             }
         }
 
-        private static List<long> getProjects()
+        private static List<long> getProjects(string group)
         {
             List<long> pIDs = new List<long>();
 
@@ -194,10 +194,14 @@ namespace extract
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
                 CxPortalWebService SOAPservice = new CxPortalWebService();
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponseProjectsScansList projects = SOAPservice.GetProjectsWithScans(session);
-                foreach (CxWSResponseBasicProjectData p in projects.projects)
+                CxWSResponseProjectsDisplayData projects = SOAPservice.GetProjectsDisplayData(session);
+                foreach (ProjectDisplayData p in projects.projectList)
                 {
-                    pIDs.Add(p.ID);
+                    if (group.ToUpper().Equals(p.Group.ToUpper()))
+                    {
+                        pIDs.Add(p.projectID);
+                        log.Info("Project added to list to pull last scan:  [" + p.projectID + "] " + p.ProjectName);
+                    }
                 }
 
             }
@@ -413,7 +417,8 @@ namespace extract
         private static long getLastScan(string projectID, string teamName)
         {
             try
-            { 
+            {
+                log.Info("Getting last scan for " + projectID + "/" + teamName);
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
                 CxPortalWebService SOAPservice = new CxPortalWebService();
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
@@ -427,10 +432,38 @@ namespace extract
                     }
                     else
                     {
-                        if (d.TeamName.ToUpper().Equals(teamName.ToUpper()))
+                        string SOAPteamname = "";
+                        try
                         {
-                            projectName = d.ProjectName;
-                            return d.ScanID;
+                            SOAPteamname = d.TeamName;
+                        }
+                        catch (Exception ex2)
+                        {
+                            log.Error("Problem getting SOAP Team Name. [" + projectID + "/" + teamName + "]" + Environment.NewLine + ex2.StackTrace);
+                        }
+
+                        if (SOAPteamname.ToUpper().Equals(teamName.ToUpper()))
+                        {
+                            try
+                            {
+                                projectName = d.ProjectName;
+                            }
+                            catch (Exception ex2)
+                            {
+                                log.Error("Problem getting project Name. [" + projectID + "/" + teamName + "]" + Environment.NewLine + ex2.StackTrace);
+                            }
+
+                            long scanID = -1;
+                            try
+                            {
+                                scanID = d.ScanID;
+                            }
+                            catch (Exception ex2)
+                            {
+                                log.Error("Problem getting scan ID. [" + projectID + "/" + teamName + "]" + Environment.NewLine + ex2.StackTrace);
+                            }
+
+                            return scanID;
                         }
                     }
                 }
