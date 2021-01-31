@@ -10,9 +10,10 @@ namespace extract
 {
     class Program
     {
-        readonly static string VERSION = "1.6";
+        readonly static string VERSION = "2.1";
         private static log4net.ILog log;
         static string session;
+        static string token;
         static string project;
         static string toEmail;
         static string path;
@@ -34,8 +35,9 @@ namespace extract
 
                 log.Info("Recieved extract request.");
                 log.Info("extract v" + VERSION);
-                
-                session = args[0];
+
+                session = "";
+                token = args[0];
                 project = args[1];
                 log.Info("Project / Team:  " + project);
                 toEmail = args[2];
@@ -44,7 +46,7 @@ namespace extract
                 Cxserver = args[4];
                 try { Int32.Parse(project); isProject = true; }
                 catch { isProject = false; }
-                
+
                 log.Info("isProject:  " + isProject);
 
                 if (isProject)
@@ -82,7 +84,7 @@ namespace extract
                         {
                             try
                             {
-                                long scanID = getLastScan(pid.ToString(), project); 
+                                long scanID = getLastScan(pid.ToString(), project);
                                 if (scanID != -1)
                                 {
                                     rows.Clear();
@@ -116,7 +118,10 @@ namespace extract
                 }
             }
             else
-                log.Info("Not enough parameters supplied to generate Cx extract.");
+            {
+                Console.WriteLine("version:  " + VERSION);
+                log.Info("Not enough parameters supplied to generate Cx extract.  CxGate Extract Version:  " + VERSION);
+            }
 
             log.Info("Extract process completed.");
             Environment.Exit(0);
@@ -192,7 +197,7 @@ namespace extract
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(token);
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseProjectsDisplayData projects = SOAPservice.GetProjectsDisplayData(session);
                 foreach (ProjectDisplayData p in projects.projectList)
@@ -222,7 +227,7 @@ namespace extract
                 List<(long, string)> queries = getQueriesForScan(scanID);
             
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(token);
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponceScanResults sr = SOAPservice.GetResultsForScan(session, scanID);
 
@@ -313,7 +318,7 @@ namespace extract
                 List<(long, string)> queries = getQueriesForScan(scanID);
 
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(token);
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponceScanResults sr = SOAPservice.GetResultsForScan(session, scanID);
 
@@ -399,7 +404,7 @@ namespace extract
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(token);
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponceQuerisForScan qfs = SOAPservice.GetQueriesForScan(session, scanID);
 
@@ -420,7 +425,7 @@ namespace extract
             {
                 log.Info("Getting last scan for " + projectID + "/" + teamName);
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(token);
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseScansDisplayData sdd = SOAPservice.GetScansDisplayData(session, Int64.Parse(projectID));
                 foreach (ScanDisplayData d in sdd.ScanList)
