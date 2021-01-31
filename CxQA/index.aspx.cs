@@ -26,7 +26,7 @@ namespace CxQA
     public partial class index : System.Web.UI.Page
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-        string VERSION = "2.18";
+        string VERSION = "3.01";
         string Cxserver = "";
         string baseline_suffix_p = "";
         string baseline_suffix_q = "";
@@ -59,7 +59,7 @@ namespace CxQA
             try { devScanAge = Int32.Parse(getProperty("devScanAge")); } catch { devScanAge = 0; }
             try {
                 commentsFilterRegEx = getProperty("commentsFilterRegEx");
-                if(commentsFilterRegEx.Equals(""))
+                if (commentsFilterRegEx.Equals(""))
                     ignoreFilter = true;
             } catch { commentsFilterRegEx = ""; ignoreFilter = true; }
 
@@ -93,7 +93,7 @@ namespace CxQA
             {
                 projectname = Request.QueryString["project"];
                 string[] baseline = null, latestdev = null;
-                
+
                 if (projectname != null)
                 {
                     try
@@ -102,7 +102,7 @@ namespace CxQA
                         ViewState["session"] = login.SessionId;
                     }
                     catch { Response.Write("Problem getting cxgate credential"); }
-                    
+
                     try { baseline = getBaselineScan(projectname, baseline_suffix_p); } catch { baseline = null; }
                     try { latestdev = Get_LastScan(projectname); } catch { latestdev = null; }
 
@@ -119,7 +119,7 @@ namespace CxQA
                     }
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Response.Write("Something went wrong.  See CxGate log.");
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
@@ -132,7 +132,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData(ViewState["session"].ToString());
                 //****TRUNCATES TEAM NAME; SEE GETPROJECTSANDTEAMSV2
@@ -147,7 +147,7 @@ namespace CxQA
                     if (!tlist.Contains(p.TeamName))
                     {
                         tlist.Add(p.TeamName);
-                        extract_param.Items.Insert(tlist.Count-1, new ListItem(p.TeamName, p.TeamName.ToString()));
+                        extract_param.Items.Insert(tlist.Count - 1, new ListItem(p.TeamName, p.TeamName.ToString()));
                     }
                 }
 
@@ -166,7 +166,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseProjectsDisplayData projects = SOAPservice.GetProjectsDisplayData(ViewState["session"].ToString());
                 foreach (ProjectDisplayData p in projects.projectList)
@@ -208,7 +208,7 @@ namespace CxQA
                     }
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
@@ -221,18 +221,26 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
-                SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData(ViewState["session"].ToString());
-                foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
-                {
-                    //if(!(p.ProjectName.ToString().ToLower().EndsWith(baseline_suffix_p.ToLower()) || p.ProjectName.ToString().ToLower().EndsWith(baseline_suffix_q.ToLower())))
-                    if (p.ProjectName.ToString().ToLower().Contains("_dev"))
-                        project_list.Items.Add(new ListItem(p.ProjectName.ToString(), p.ProjectID.ToString()));
-                }
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
+                SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx";
 
-                SortListControl(project_list, true);
-                project_list.Items.Insert(0, new ListItem("Select a project...", "-1"));
+                CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData("");
+
+                if (projects.IsSuccesfull)
+                {
+                    foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
+                    {
+                        if (p.ProjectName.ToString().ToLower().Contains("_dev"))
+                            project_list.Items.Add(new ListItem(p.ProjectName.ToString(), p.ProjectID.ToString()));
+                    }
+
+                    SortListControl(project_list, true);
+                    project_list.Items.Insert(0, new ListItem("Select a project...", "-1"));
+                }
+                else
+                {
+                    log.Error(projects.ErrorMessage);
+                }
             }
             catch (Exception e)
             {
@@ -240,12 +248,12 @@ namespace CxQA
             }
         }
 
-        private string [] Get_LastScan(String projectname)
+        private string[] Get_LastScan(String projectname)
         {
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData(ViewState["session"].ToString());
                 foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
@@ -253,7 +261,7 @@ namespace CxQA
                     if (p.ProjectName.ToString().ToLower().Equals(projectname.ToLower()))
                     {
                         ViewState["baselinescanid"] = p.LastScanID.ToString();
-                        return new string [] { p.LastScanID.ToString(), p.ProjectName, p.ProjectID.ToString() };
+                        return new string[] { p.LastScanID.ToString(), p.ProjectName, p.ProjectID.ToString() };
                     }
                 }
             }
@@ -271,11 +279,11 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponsProjectProperties properties = SOAPservice.GetProjectProperties(ViewState["session"].ToString(), pid, ScanType.UNKNOWN);
                 string values = "";
-                for (int i = 0; i < properties.ProjectConfig.ProjectConfig.CustomFields.Length; i++) 
+                for (int i = 0; i < properties.ProjectConfig.ProjectConfig.CustomFields.Length; i++)
                     values += properties.ProjectConfig.ProjectConfig.CustomFields[i].Value + " ";
 
                 ViewState["CustomFields"] = values;
@@ -290,7 +298,7 @@ namespace CxQA
         {
             System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
             CxWSResponseLoginData login = null;
-            CxPortalWebService SOAPservice = new CxPortalWebService();
+            CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
             SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
             Credentials c = new Credentials();
 
@@ -316,7 +324,7 @@ namespace CxQA
             }
         }
 
-        protected async void login_Click(object sender, EventArgs e)
+        protected async void login_Click_SOAP(object sender, EventArgs e)
         {
             CxWSResponseLoginData login = getSessionID(user.Text, pass.Text);
             if (login != null)
@@ -352,6 +360,48 @@ namespace CxQA
             else
             {
                 loginerror.Text = "Could not log in as " + ViewState["user"] + ".  Please try again.";
+            }
+        }
+
+        protected async void login_Click(object sender, EventArgs e)
+        {
+            String un = "";
+            try
+            {
+                loginerror.Text = "";
+
+                if (codomain.Text.Equals("Application"))
+                    un = user.Text;
+                else
+                    un = codomain.Text + "\\" + user.Text;
+
+                String token = await authREST(un, pass.Text);
+                ViewState["RESTTOKEN"] = getRESTToken(token);
+                ViewState["session"] = "";
+
+                String userprofile = "";
+                try
+                {
+                    userprofile = await getLoggedInProfile();
+                    dynamic t = JObject.Parse(userprofile);
+                    ViewState["sendto"] = t.email.ToString();
+                    log.Info("Email address of requester:  " + ViewState["sendto"].ToString());
+                }
+                catch(Exception exx)
+                {
+                    log.Error("Could not get e-mail address of logged in user:  " + userprofile + Environment.NewLine + exx.StackTrace);
+                }
+
+                login_form.Visible = false;
+                Get_Projects();
+                getProjectsAndTeamsv2();
+                projects_form.Visible = true;
+                log.Info(user.Text + " logged in.");
+            }
+            catch (Exception ex)
+            {
+                log.Info(un + " could not log in:  " + ex.Message + " - " + ex.StackTrace);
+                loginerror.Text = "Could not log in as " + un + ".  Please try again.";
             }
         }
 
@@ -412,7 +462,7 @@ namespace CxQA
                 try
                 {
                     System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                    CxPortalWebService SOAPservice = new CxPortalWebService();
+                    CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                     SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                     Regex regex = new Regex(commentsFilterRegEx);
                     log.Info("Comment filtering pattern applied to scans:  " + commentsFilterRegEx);
@@ -531,7 +581,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
                 CxWSResponseScanSummary scan = SOAPservice.GetScanSummary(ViewState["session"].ToString(), scanID, true);
@@ -625,7 +675,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
                 CxWSResponseScansDisplayExtendedData sdd = SOAPservice.GetScansDisplayDataForAllProjects(ViewState["session"].ToString());
@@ -661,7 +711,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
                 CxWSResponseScanSummary old_scan = SOAPservice.GetScanSummary(ViewState["session"].ToString(), oldscan, true);
@@ -761,7 +811,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
                 log.Info("Old Scan:  " + oldscan);
@@ -808,7 +858,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
                 CxWSResponceScanResults results = SOAPservice.GetResultsForScan(ViewState["session"].ToString(), newscan);
@@ -903,7 +953,7 @@ namespace CxQA
                 try
                 {
                     System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                    CxPortalWebService SOAPservice = new CxPortalWebService();
+                    CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                     SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                     CxWSResponceQuerisForScan queries = SOAPservice.GetQueriesForScan(ViewState["session"].ToString(), scanid);
 
@@ -931,7 +981,7 @@ namespace CxQA
             try
             {
                 System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService();
+                CxPortalWebService SOAPservice = new CxPortalWebService(ViewState["RESTTOKEN"].ToString());
                 SOAPservice.Url = Cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                 CxWSResponceResultPath history = SOAPservice.GetPathCommentsHistory(ViewState["session"].ToString(), scanid, pathid, ResultLabelTypeEnum.Remark);
 
@@ -1125,7 +1175,7 @@ namespace CxQA
                 int secondsSinceEpoch = (int)t.TotalSeconds;
 
                 process.StartInfo.FileName = HttpContext.Current.Server.MapPath("~/") + "extract.exe";
-                process.StartInfo.Arguments = ViewState["session"].ToString() + " " + extract_param.SelectedValue + " " + ViewState["sendto"] + 
+                process.StartInfo.Arguments = ViewState["RESTTOKEN"].ToString() + " " + extract_param.SelectedValue + " " + ViewState["sendto"] + 
                     " \"" + HttpContext.Current.Server.MapPath("~/") + "reports\\CxExtract_" + secondsSinceEpoch + ".xlsx\" " + Cxserver + " \"" +
                     HttpContext.Current.Server.MapPath("~/") + @"cxqa.properties" + "\"";
 
@@ -1176,8 +1226,8 @@ namespace CxQA
                     { "username", un },
                     { "password", pw },
                     { "grant_type", "password" },
-                    { "scope", "sast_rest_api" },
-                    { "client_id", "resource_owner_client" },
+                    { "scope", "offline_access sast_api" },
+                    { "client_id", "resource_owner_sast_client" },
                     { "client_secret", "014DF517-39D1-4453-B7B3-9930C563627C" }
                 };
 
@@ -1206,6 +1256,30 @@ namespace CxQA
 
                 var response = await client.GetAsync(url);
                 var responseString = await response.Content.ReadAsStringAsync();
+
+                return responseString;
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+            }
+
+            return "Error";
+        }
+
+        private async Task<string> getLoggedInProfile()
+        {
+            try
+            {
+                HttpClient client = new HttpClient();
+                String url = Cxserver + "/cxrestapi/auth/myprofile";
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ViewState["RESTTOKEN"].ToString());
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await client.GetAsync(url);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                log.Info(responseString);
 
                 return responseString;
             }
