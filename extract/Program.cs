@@ -181,6 +181,8 @@ namespace extract
 
                 SmtpServer.EnableSsl = enableSSL;
 
+                log.Debug(mail.ToString());
+
                 SmtpServer.Send(mail);
             }
             catch(Exception ex)

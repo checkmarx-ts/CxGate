@@ -1,0 +1,79 @@
+body {
+	color: dimgray;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 0.850em;
+}
+div.mainPanel {
+    width:950px;
+	height: 100%;
+	margin:0 auto;
+    position:relative;
+    background:white;
+	padding-left: 40px;
+	padding-right: 40px;
+	border-left:1px solid lightgray;
+	border-right:1px solid lightgray;
+}
+div.footer {
+	margin:0 auto;
+    position:relative;
+	width:400px;
+	border-top:1px solid lightgray;
+}
+table{
+    page-break-inside: avoid;    
+}
+div.withScroll {
+	overflow-x: hidden;
+	overflow-y: scroll;
+	height: 250px;
+	width: 900px;
+}
+.scanList tr {
+	word-wrap: break-word;
+}
+.scanList tr td+td+td+td+td+td {
+	word-wrap: anywhere;
+}
+.compareTable tr td {
+	padding: 5px;
+	word-wrap: break-word;
+}
+.compareTable tr td + td {
+	width: 45% !important;
+	word-wrap: anywhere;
+}
+.compareTable tr td + td + td {
+	width: 45% !important;
+	word-wrap: anywhere;
+}
+p.error
+{
+     -moz-border-radius: 6px;
+     -webkit-border-radius: 6px;
+     background-color: #f0f7fb;
+     background-image: url(/resources/images/Warning-48.png);
+     background-position: left center;
+     background-repeat: no-repeat;
+     border: solid 1px #3498db;
+     border-radius: 6px;
+     line-height: 18px;
+     overflow: hidden;
+     padding: 15px 60px;
+	 color: red;
+}
+p.message
+{
+     -moz-border-radius: 6px;
+     -webkit-border-radius: 6px;
+     background: url(/resources/images/Bulb-48.png);
+	 background-position: left center;
+     background-repeat: no-repeat;
+	 background-color: #f0f7fb;
+     border: solid 1px #3498db;
+     border-radius: 6px;
+     line-height: 18px;
+     overflow: hidden;
+     padding: 15px 60px;
+	 color: steelblue;
+}
