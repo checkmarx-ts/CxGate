@@ -1,7 +1,7 @@
 using CredentialManagement;
 using CxQA.CX;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using OfficeOpenXml.FormulaParsing.LexicalAnalysis;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using System;
@@ -14,19 +14,26 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
+using System.Runtime.Remoting.Contexts;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
-using System.Web.Configuration;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using TheArtOfDev.HtmlRenderer.Core;
 using TheArtOfDev.HtmlRenderer.PdfSharp;
+using static OfficeOpenXml.ExcelErrorValue;
 using ListItem = System.Web.UI.WebControls.ListItem;
 
 namespace CxQA
 {
+    /// <summary>
+    /// Enumeration of operations that this 
+    /// application can perform. This is used
+    /// to track what UI elements to render.
+    /// </summary>
     public enum CxGateOp
     {
         LIST_PROJECTS,
@@ -34,8 +41,10 @@ namespace CxQA
         COMPARE_SCANS,
         GENERATE_REPORT
     }
-
-    public struct CxGateViewStateKeys
+    /// <summary>
+    /// Keys used in the ViewState.
+    /// </summary>
+    public struct ViewStateKeys
     {
         public static readonly string TOKEN = "cx_token";
         public static readonly string SOAP_TOKEN = "cx_soap_token";
@@ -45,8 +54,18 @@ namespace CxQA
         public static readonly string LAST_NAME = "cx_last_name";
         public static readonly string USER_EMAIL = "cx_user_email";
 
+        public static readonly string PROJECT_CUSTOM_FIELDS_MAP = "cx_custom_fields_map";
         public static readonly string CUSTOM_FIELDS = "cx_custom_fields";
         public static readonly string CURRENT_OP = "cx_current_op";
+    }
+
+    /// <summary>
+    /// Keys for data entries stored in the session
+    /// </summary>
+    public struct SessionDataKeys
+    {
+        public static readonly string PROJECTS = "cx_data_projects";
+        public static readonly string TEAMS = "cx_data_teams";
     }
 
     public class CxGateConfig
@@ -78,6 +97,14 @@ namespace CxQA
 
         //--set to true to show advanced debugging entries in the log--/
         public bool debug = false;
+    }
+
+    [Serializable]
+    public class CxCustomField
+    {
+        public int Id { get; set; }
+        public String Value { get; set; }
+        public String Name { get; set; }
     }
 
     public partial class Index : System.Web.UI.Page
@@ -145,7 +172,7 @@ namespace CxQA
             ClearAllMessages();
             HideBody();
 
-            if (ViewState[CxGateViewStateKeys.TOKEN] == null)
+            if (ViewState[ViewStateKeys.TOKEN] == null)
             {
                 if (!IsPostBack)
                 {
@@ -176,7 +203,7 @@ namespace CxQA
         #region ViewState
         private bool IsAuthenticated()
         {
-            bool isAuth = ViewState != null && ViewState[CxGateViewStateKeys.TOKEN] != null;
+            bool isAuth = ViewState != null && ViewState[ViewStateKeys.TOKEN] != null;
             // if (config.debug) log.Debug("-------->>> IsAuthenticated : " + isAuth);
             return isAuth;
         }
@@ -186,14 +213,14 @@ namespace CxQA
         {
             // if (config.debug) log.Debug("-------->>> ShowDivs");
 
-            CxGateOp op = (CxGateOp)ViewState[CxGateViewStateKeys.CURRENT_OP];
+            CxGateOp op = (CxGateOp)ViewState[ViewStateKeys.CURRENT_OP];
             if (config.debug) log.Debug("Current operation in ViewState is [" + op + "]");
 
             switch (op)
             {
                 default:
                 case CxGateOp.LIST_PROJECTS:
-                    Get_Projects();
+                    GetProjects();
                     if (config.showDetailsReport) GetProjectsAndTeams();
                     break;
                 case CxGateOp.COMPARE_SCANS:
@@ -209,8 +236,9 @@ namespace CxQA
 
             try
             {
-                string projectname = Request.QueryString["project"];
-                if (!String.IsNullOrEmpty(projectname)) CompareScansForProject(projectname);
+                string projectName = Request.QueryString["project"];
+                int projectId = GetProjectIdFromCache(projectName);
+                if (!String.IsNullOrEmpty(projectName)) CompareScansForProject(projectId, projectName);
             }
             catch (Exception ex)
             {
@@ -232,7 +260,7 @@ namespace CxQA
                 {
                     if (IsAuthenticated())
                     {
-                        String refreshToken = ViewState[CxGateViewStateKeys.TOKEN].ToString();
+                        String refreshToken = ViewState[ViewStateKeys.TOKEN].ToString();
                         jwtToken = await getJWT(refreshToken);
                     }
 
@@ -244,14 +272,14 @@ namespace CxQA
                             await Logout(); break;
                         case "includeLowsInfoInReport":
                         case "compare":
-                            await CompareScans(); break;
+                            CompareScans(); break;
                         case "listScans":
                         case "project_list":
-                            await ListScans(); break;
+                            ListScans(); break;
                         case "pdf":
-                            await GenerateComparisonReport(); break;
+                            GenerateComparisonReport(); break;
                         case "projectsTeamsList":
-                            await GenerateAndEmailDetailsReport(); break;
+                            GenerateAndEmailDetailsReport(); break;
                     }
 
                     if (IsAuthenticated())
@@ -286,14 +314,14 @@ namespace CxQA
                     username = authDomainsDropDown.Text + "\\" + user.Text;
 
                 // Default landing operation
-                ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.LIST_PROJECTS);
+                ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_PROJECTS);
 
                 String refreshToken = await getAuthToken(username, pass.Text);
 
-                ViewState.Add(CxGateViewStateKeys.USERNAME, username);
-                ViewState.Add(CxGateViewStateKeys.TOKEN, refreshToken);
+                ViewState.Add(ViewStateKeys.USERNAME, username);
+                ViewState.Add(ViewStateKeys.TOKEN, refreshToken);
                 // TODO: REMOVE
-                ViewState.Add(CxGateViewStateKeys.SOAP_TOKEN, String.Empty);
+                ViewState.Add(ViewStateKeys.SOAP_TOKEN, String.Empty);
 
                 String userProfileJson = String.Empty;
                 String email = String.Empty;
@@ -313,9 +341,9 @@ namespace CxQA
                     firstName = t.firstName.ToString();
                     lastName = t.lastName.ToString();
 
-                    ViewState.Add(CxGateViewStateKeys.USER_EMAIL, email);
-                    ViewState.Add(CxGateViewStateKeys.FIRST_NAME, firstName);
-                    ViewState.Add(CxGateViewStateKeys.LAST_NAME, lastName);
+                    ViewState.Add(ViewStateKeys.USER_EMAIL, email);
+                    ViewState.Add(ViewStateKeys.FIRST_NAME, firstName);
+                    ViewState.Add(ViewStateKeys.LAST_NAME, lastName);
 
                     if (config.debug) log.Debug("Email address of requester:  " + email);
                 }
@@ -348,8 +376,8 @@ namespace CxQA
                 return;
             }
 
-            String user = ViewState[CxGateViewStateKeys.USERNAME].ToString();
-            String token = ViewState[CxGateViewStateKeys.TOKEN].ToString();
+            String user = ViewState[ViewStateKeys.USERNAME].ToString();
+            String token = ViewState[ViewStateKeys.TOKEN].ToString();
 
             log.Debug("Attempting to logout user " + user);
 
@@ -369,8 +397,8 @@ namespace CxQA
             {
                 log.Info("User [" + user + "]'s token was logged out on the server.");
 
-                ViewState[CxGateViewStateKeys.USERNAME] = null;
-                ViewState[CxGateViewStateKeys.TOKEN] = null;
+                ViewState[ViewStateKeys.USERNAME] = null;
+                ViewState[ViewStateKeys.TOKEN] = null;
                 jwtToken = null;
                 if (config.debug) log.Debug("User state has been cleared.");
 
@@ -382,15 +410,15 @@ namespace CxQA
                 log.Error("Could not log out user [" + user + "]. " + response.ReasonPhrase);
             }
         }
-        protected async Task CompareScans()
+        protected void CompareScans()
         {
             // if (config.debug) log.Debug("-------->>> CompareScans");
 
-            ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
 
             int checked_count = 0;
             bool noscanrun = false;
-            string[] scanIDs = new String[2];
+            string[] scanIDs = new string[2];
             DateTime baseline = new DateTime();
             DateTime dev = new DateTime();
 
@@ -420,7 +448,7 @@ namespace CxQA
                 }
             }
 
-            String errMsg = String.Empty;
+            string errMsg = string.Empty;
             if (checked_count != 2 || scanIDs[0] == null || scanIDs[1] == null)
             {
                 errMsg = "Please select one PRD/QA and one DEV scans to compare.";
@@ -440,18 +468,19 @@ namespace CxQA
                 pdf.Visible = true;
             }
 
-            if (!String.IsNullOrEmpty(errMsg))
+            if (!string.IsNullOrEmpty(errMsg))
             {
                 getScans();
                 ShowMessage(errMsg);
             }
         }
-        protected async Task GenerateComparisonReport()
+
+        protected void GenerateComparisonReport()
         {
             // if (config.debug) log.Debug("-------->>> GenerateComparisonReport");
 
             // Current op
-            ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.GENERATE_REPORT);
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.GENERATE_REPORT);
 
             try
             {
@@ -463,12 +492,12 @@ namespace CxQA
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
         }
-        protected async Task ListScans()
+        protected void ListScans()
         {
             // if (config.debug) log.Debug("-------->>> ListScans");
 
             // Current op
-            ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
 
             getScans();
         }
@@ -562,38 +591,69 @@ namespace CxQA
         #endregion
 
         #region Project Data
-        private void Get_Projects()
+        private void GetProjects()
         {
-            // if (config.debug) log.Debug("-------->>> Get_Projects");
+            // if (config.debug) log.Debug("-------->>> GetProjects");
 
             if (project_list.Items.Count > 0) return;
 
             try
             {
+                String endpoint = "/cxrestapi/projects";
 
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx";
-
-                CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData("");
-
-                if (projects.IsSuccesfull)
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("2.2", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
                 {
-                    foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
+                    log.Debug("Deserializing response string");
+                    dynamic projects = JsonConvert.DeserializeObject(responseString);
+                    log.Debug(">>>>>> Adding project to session");
+                    // Save projects in session
+                    Session.Add(SessionDataKeys.PROJECTS, projects);
+                    log.Debug("Looping over projects to add to project list");
+                    foreach (var p in projects)
                     {
-                        if (p.ProjectName.ToString().ToLower().Contains("_dev"))
-                            project_list.Items.Add(new ListItem(p.ProjectName.ToString(), p.ProjectID.ToString()));
+                        if (p.name.ToString().ToLower().Contains("_dev"))
+                        {
+                            string projectIdStr = p.id.ToString();
+                            int projectId = int.Parse(projectIdStr);
+
+                            project_list.Items.Add(new ListItem(p.name.ToString(), projectIdStr));
+
+                            // If the project contains custom field values,
+                            // save them in the session in the CUSTOM_FIELDS key.
+                            if (p.customFields.Count > 0)
+                            {
+                                List<CxCustomField> cxCustomFieldList = new List<CxCustomField>();
+                                foreach (var customField in p.customFields)
+                                {
+                                    CxCustomField cxCustomField = new CxCustomField() { Id = int.Parse(customField.id.ToString()), Name = customField.name.ToString(), Value = customField.value.ToString() };
+                                    log.Debug("Found custom field(s) in project [" + p.name + "]. Custom Field : [" + cxCustomField.Name + "=" + cxCustomField.Value + "]");
+                                    cxCustomFieldList.Add(cxCustomField);
+                                }
+
+                                Dictionary<int, List<CxCustomField>> customFields = new Dictionary<int, List<CxCustomField>>();
+
+                                if (!customFields.ContainsKey(projectId) && cxCustomFieldList.Count > 0)
+                                {
+                                    customFields.Add(projectId, cxCustomFieldList);
+                                }
+                                log.Debug("Adding Custom Field Map to view state.");
+                                ViewState[ViewStateKeys.PROJECT_CUSTOM_FIELDS_MAP] = customFields;
+                            }
+                        }
                     }
 
                     // Sort first, and then add the 'Select a project or...' entry at the top
                     SortListControl(project_list, true);
                     project_list.Items.Insert(0, new ListItem("Select a project...", "-1"));
-
                 }
                 else
                 {
-                    ShowErrorMessage("Could not fetch project data from server.<br/>" + projects.ErrorMessage);
-                    log.Error(projects.ErrorMessage);
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch project data from server.<br/>Please see log for details.");
                 }
             }
             catch (Exception e)
@@ -601,38 +661,69 @@ namespace CxQA
                 ShowErrorMessage("Could not fetch project data from server.<br/>" + e.Message);
                 log.Error(e.Message + Environment.NewLine + e.StackTrace);
             }
-        }
+        }        
         private void GetProjectsAndTeams()
         {
             // if (config.debug) log.Debug("-------->>> GetProjectsAndTeams");
             if (projectsTeamsList.Items.Count > 0) return;
 
-            List<string> tlist = new List<string>();
+            log.Debug("<<<<<<< Fetching projects FROM session");
+            dynamic projects = Session[SessionDataKeys.PROJECTS];
+
             try
             {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponseProjectsDisplayData projects = SOAPservice.GetProjectsDisplayData(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString());
-                foreach (ProjectDisplayData p in projects.projectList)
+                String endpoint = "/cxrestapi/auth/teams";
+
+                log.Debug("Calling GET on endpoint " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("2.2", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (httpResponse.IsSuccessStatusCode)
                 {
-                    if (!tlist.Contains(p.Group + "\\" + p.ProjectName))
+                    Dictionary<String, String> teamsMap = new Dictionary<String, String>();
+
+                    log.Debug("Deserializing TEAM response string");
+                    dynamic teams = JsonConvert.DeserializeObject(responseString);
+
+                    // Add teams to list
+                    log.Debug("Looping over teams to add to projectsteams list");
+                    if (teams != null)
                     {
-                        tlist.Add(p.Group + "\\" + p.ProjectName);
-                        projectsTeamsList.Items.Add(new ListItem(p.Group + "\\" + p.ProjectName, p.projectID.ToString()));
+                        foreach (var t in teams)
+                        {
+                            teamsMap.Add(t.id.ToString(), t.fullName.ToString());
+                            projectsTeamsList.Items.Add(new ListItem(t.fullName.ToString(), t.fullName.ToString()));
+                        }
+
+                        Session.Add(SessionDataKeys.TEAMS, teamsMap);
                     }
 
-                    if (!tlist.Contains(p.Group))
+                    // Add team + project path to list
+                    log.Debug("Looping over projects to add to projectsteams list");
+                    if (projects != null)
                     {
-                        tlist.Add(p.Group);
-                        projectsTeamsList.Items.Insert(tlist.Count - 1, new ListItem(p.Group, p.Group.ToString()));
+                        foreach (var p in projects)
+                        {
+                            // Construct team+project path
+                            String teamName = String.Empty;
+                            if (teamsMap.TryGetValue(p.teamId.ToString(), out teamName))
+                            {
+                                var fullProjectPath = teamName + "/" + p.name.ToString();
+                                projectsTeamsList.Items.Add(new ListItem(fullProjectPath, p.id.ToString()));
+                            }
+                        }
                     }
+
+                    // Sort first, and then add the 'Select a project or...' entry at the top
+                    SortListControl(projectsTeamsList, true);
+                    projectsTeamsList.Items.Insert(0, new ListItem("Select a project or team...", "-1"));
                 }
-
-                // Sort first, and then add the 'Select a project or...' entry at the top
-                SortListControl(projectsTeamsList, true);
-                projectsTeamsList.Items.Insert(0, new ListItem("Select a project or team...", "-1"));
-
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch project/team data from server.<br/>Please see log for details.");
+                }
             }
             catch (Exception e)
             {
@@ -640,74 +731,174 @@ namespace CxQA
                 log.Error(e.Message + Environment.NewLine + e.StackTrace);
             }
         }
-        private void Get_Project_Properties(long pid)
+        private void Get_Project_Properties(int pid)
         {
             // if (config.debug) log.Debug("-------->>> Get_Project_Properties");
-            try
-            {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponsProjectProperties properties = SOAPservice.GetProjectProperties(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), pid, ScanType.UNKNOWN);
-                string values = "";
-                for (int i = 0; i < properties.ProjectConfig.ProjectConfig.CustomFields.Length; i++)
-                    values += properties.ProjectConfig.ProjectConfig.CustomFields[i].Value + " ";
 
-                ViewState[CxGateViewStateKeys.CUSTOM_FIELDS] = values;
+            log.Debug("<<<<<<< Fetching custom fields");
+            dynamic customFieldsMap = ViewState[ViewStateKeys.PROJECT_CUSTOM_FIELDS_MAP];
+
+            log.Debug("Looking for custom fields from project id " + pid);
+            StringBuilder values = new StringBuilder();
+
+            if (customFieldsMap != null && customFieldsMap.ContainsKey(pid))
+            {                
+                List<CxCustomField> fields = customFieldsMap[pid];
+                foreach (CxCustomField field in fields)
+                {
+                    values.Append(field.Value);
+                    values.Append(" ");
+                }
             }
-            catch (Exception e)
-            {
-                log.Error(e.Message + Environment.NewLine + e.StackTrace);
-            }
+            log.Debug("Adding custom fields [" + values.ToString() + "] to viewstate.");
+            ViewState[ViewStateKeys.CUSTOM_FIELDS] = values.ToString();
         }
         #endregion
 
         #region Scan Data
-        private string[] Get_LastScan(String projectname)
+
+        private string[] GetLastScan(int projectId, String projectName)
         {
-            // if (config.debug) log.Debug("-------->>> Get_LastScan");
+            // if (config.debug) log.Debug("-------->>> GetLastScan");
+
             try
             {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponseProjectScannedDisplayData projects = SOAPservice.GetProjectScannedDisplayData(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString());
-                foreach (ProjectScannedDisplayData p in projects.ProjectScannedList)
+                String endpoint = "/cxrestapi/sast/scans?last=1&scanStatus=Finished&projectId=" + projectId;
+
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
                 {
-                    if (p.ProjectName.ToString().ToLower().Equals(projectname.ToLower()))
-                    {
-                        return new string[] { p.LastScanID.ToString(), p.ProjectName, p.ProjectID.ToString() };
-                    }
+                    log.Debug("Deserializing response string");
+                    dynamic scan = JsonConvert.DeserializeObject(responseString);
+                    
+                    return new string[] { scan[0].id.ToString(), projectName, projectId.ToString() };
+                }
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch last scan from server.<br/>Please see log for details.");
                 }
             }
             catch (Exception e)
             {
+                ShowErrorMessage("Could not fetch last scan from server.<br/>" + e.Message);
                 log.Error(e.Message + Environment.NewLine + e.StackTrace);
-                return null;
             }
 
             return null;
         }
+
+        private dynamic GetScan(int scanId)
+        {
+            // if (config.debug) log.Debug("-------->>> GetScan");
+
+            try
+            {
+                String endpoint = "/cxrestapi/sast/scans/" + scanId;
+
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("1.1", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    log.Debug("Deserializing response string");
+                    return JsonConvert.DeserializeObject(responseString);
+                }
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch requested scan from server.<br/>Please see log for details.");
+                }
+            }
+            catch (Exception e)
+            {
+                ShowErrorMessage("Could not fetch requested scan from server.<br/>" + e.Message);
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+
+            return null;
+        }
+
+        private dynamic GetScanList(int projectId)
+        {
+            // if (config.debug) log.Debug("-------->>> GetScanList");
+
+            try
+            {
+                String endpoint = "/cxrestapi/sast/scans?scanStatus=Finished&projectId=" + projectId;
+
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    log.Debug("Deserializing response string");
+                    return JsonConvert.DeserializeObject(responseString); 
+                }
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch scan list from server.<br/>Please see log for details.");
+                }
+            }
+            catch (Exception e)
+            {
+                ShowErrorMessage("Could not fetch scan list from server.<br/>" + e.Message);
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+
+            return null;
+        }
+
+        private int GetProjectIdFromCache (String projectName)
+        {
+            // if (config.debug) log.Debug("-------->>> GetProjectIdFromCache");
+
+            int projectId = -1;
+            log.Debug("<<<<<<< Fetching projects FROM session");
+            dynamic projects = Session[SessionDataKeys.PROJECTS];
+            if (projects != null)
+            {
+                log.Debug("Looping over projects to lookup projectId");
+                foreach (var p in projects)
+                {
+                    if (string.Equals(p.name.ToString(), projectName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        projectId = p.id;
+                        log.Debug("Found project id [" + projectId + "] for project [" + projectName + "]");
+                    }
+                }
+            }
+            return projectId;
+        }
+
         private void getScans()
         {
             // if (config.debug) log.Debug("-------->>> getScans");
 
-            ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
             if (project_list.SelectedItem.Value.Equals("-1")) return;
 
             ClearScansGridView();
 
             String projectName = project_list.SelectedItem.Text;
+            int projectId = int.Parse(project_list.SelectedItem.Value);
+            // int projectId = GetProjectIdFromCache (projectName);
 
-            log.Info(projectName + " selected by " + ViewState[CxGateViewStateKeys.USERNAME]);
+            log.Info(projectName + " selected by " + ViewState[ViewStateKeys.USERNAME]);
             divComparisonForm.Visible = false;
 
             string[] p_prd = null;
-            try { p_prd = getBaselineScan(projectName, baseline_suffix_p); }
+            try { p_prd = getBaselineScan(projectId, projectName, baseline_suffix_p); }
             catch { p_prd = null; }
 
             string[] p_qa = null;
-            try { p_qa = getBaselineScan(projectName, baseline_suffix_q); }
+            try { p_qa = getBaselineScan(projectId, projectName, baseline_suffix_q); }
             catch { p_qa = null; }
 
             if (project_list.SelectedIndex != 0 && (p_prd != null || p_qa != null))
@@ -737,26 +928,30 @@ namespace CxQA
 
                 try
                 {
-                    System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                    CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                    SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
                     Regex regex = new Regex(config.commentsFilterRegEx);
                     log.Info("Comment filtering pattern applied to scans: [" + config.commentsFilterRegEx + "]");
 
-                    Get_Project_Properties(Int64.Parse(project_list.SelectedItem.Value));
-                    CxWSResponseScansDisplayData sdd = SOAPservice.GetScansDisplayData(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), Int64.Parse(project_list.SelectedItem.Value));
+                    Get_Project_Properties(int.Parse(project_list.SelectedItem.Value));
+                    dynamic sdd = GetScanList(projectId);
                     if (sdd != null)
                     {
-                        foreach (ScanDisplayData s in sdd.ScanList)
+                        foreach (var s in sdd)
                         {
-                            string datetime = s.FinishedDateTime.Month.ToString("D2") + "/" + s.FinishedDateTime.Day.ToString("D2") + "/" + s.FinishedDateTime.Year +
-                                " " + s.FinishedDateTime.Hour.ToString("D2") + ":" + s.FinishedDateTime.Minute.ToString("D2") + ":" + s.FinishedDateTime.Second.ToString("D2");
+                            var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
+                            var isIncremental = bool.Parse(s.isIncremental.ToString());
+                            var scanId = int.Parse(s.id.ToString());
+                            var comment = s.comment.ToString();
+                            var isLocked = bool.Parse(s.isLocked.ToString());
+                            var origin = s.origin.ToString();
+
+                            string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
+                                " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
                             if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                             {
-                                Match match = regex.Match(s.Comments.ToString());
-                                if ((!match.Success || ignoreFilter) && !s.IsIncremental)
+                                Match match = regex.Match(comment);
+                                if ((!match.Success || ignoreFilter) && !isIncremental)
                                 {
-                                    dt.Rows.Add(false, projectName, s.ScanID.ToString(), s.Origin.ToString(), s.IsIncremental, getEngineFinishTime(s.ScanID), s.Comments.ToString(), s.IsLocked);
+                                    dt.Rows.Add(false, projectName, scanId, origin, isIncremental, getEngineFinishTime(finishedOn), comment, isLocked);
                                 }
                             }
                         }
@@ -764,19 +959,26 @@ namespace CxQA
 
                     if (p_prd != null)
                     {
-                        sdd = SOAPservice.GetScansDisplayData(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), Int64.Parse(p_prd[2]));
+                        sdd = GetScanList(int.Parse(p_prd[2]));
                         if (sdd != null)
                         {
-                            foreach (ScanDisplayData s in sdd.ScanList)
+                            foreach (var s in sdd)
                             {
-                                string datetime = s.FinishedDateTime.Month.ToString("D2") + "/" + s.FinishedDateTime.Day.ToString("D2") + "/" + s.FinishedDateTime.Year +
-                                    " " + s.FinishedDateTime.Hour.ToString("D2") + ":" + s.FinishedDateTime.Minute.ToString("D2") + ":" + s.FinishedDateTime.Second.ToString("D2");
+                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
+                                var isIncremental = bool.Parse(s.isIncremental.ToString());
+                                var scanId = int.Parse(s.id.ToString());
+                                var comment = s.comment.ToString();
+                                var isLocked = bool.Parse(s.isLocked.ToString());
+                                var origin = s.origin.ToString();
+
+                                string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
+                                    " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
                                 if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.baselineScanAge)) > 0 || config.baselineScanAge == 0)
                                 {
-                                    Match match = regex.Match(s.Comments.ToString());
+                                    Match match = regex.Match(comment);
                                     if (!match.Success || true /*ignoreFilter*/)
                                     {
-                                        dtp.Rows.Add(false, p_prd[1], s.ScanID.ToString(), s.Origin.ToString(), s.IsIncremental, datetime, s.Comments.ToString(), s.IsLocked);
+                                        dtp.Rows.Add(false, p_prd[1], scanId, origin, isIncremental, datetime, comment, isLocked);
                                     }
                                 }
                             }
@@ -785,19 +987,26 @@ namespace CxQA
 
                     if (p_qa != null)
                     {
-                        sdd = SOAPservice.GetScansDisplayData(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), Int64.Parse(p_qa[2]));
+                        sdd = GetScanList(int.Parse(p_qa[2]));
                         if (sdd != null)
                         {
-                            foreach (ScanDisplayData s in sdd.ScanList)
+                            foreach (var s in sdd)
                             {
-                                string datetime = s.FinishedDateTime.Month.ToString("D2") + "/" + s.FinishedDateTime.Day.ToString("D2") + "/" + s.FinishedDateTime.Year +
-                                    " " + s.FinishedDateTime.Hour.ToString("D2") + ":" + s.FinishedDateTime.Minute.ToString("D2") + ":" + s.FinishedDateTime.Second.ToString("D2");
+                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
+                                var isIncremental = bool.Parse(s.isIncremental.ToString());
+                                var scanId = int.Parse(s.id.ToString());
+                                var comment = s.comment.ToString();
+                                var isLocked = bool.Parse(s.isLocked.ToString());
+                                var origin = s.origin.ToString();
+
+                                string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
+                                    " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
                                 if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.baselineScanAge)) > 0 || config.baselineScanAge == 0)
                                 {
-                                    Match match = regex.Match(s.Comments.ToString());
+                                    Match match = regex.Match(comment);
                                     if (!match.Success || true /*ignoreFilter*/)
                                     {
-                                        dtp.Rows.Add(false, p_qa[1], s.ScanID.ToString(), s.Origin.ToString(), s.IsIncremental, datetime, s.Comments.ToString(), s.IsLocked);
+                                        dtp.Rows.Add(false, p_qa[1], scanId, origin, isIncremental, datetime, comment, isLocked);
                                     }
                                 }
                             }
@@ -872,21 +1081,15 @@ namespace CxQA
             project_list.DataBind();
         }
 
-        private String getEngineFinishTime(long scanID)
+        private String getEngineFinishTime(DateTime scanFinishTime)
         {
             // if (config.debug) log.Debug("-------->>> getEngineFinishTime");
             try
             {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-
-                CxWSResponseScanSummary scan = SOAPservice.GetScanSummary(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), scanID, true);
-                DateTime dt = new DateTime(scan.EngineFinish.Year, scan.EngineFinish.Month, scan.EngineFinish.Day, scan.EngineFinish.Hour, scan.EngineFinish.Minute, scan.EngineFinish.Second);
-                if (dt.Year == 1)
+                if (scanFinishTime.Year == 1)
                     return "N/A";
                 else
-                    return formatDate(dt);
+                    return formatDate(scanFinishTime);
             }
             catch (Exception ex)
             {
@@ -894,13 +1097,13 @@ namespace CxQA
                 return "N/A";
             }
         }
-        private string[] getBaselineScan(string projectname, string ext)
+        private string[] getBaselineScan(int projectId, string projectname, string ext)
         {
             // if (config.debug) log.Debug("-------->>> getBaselineScan");
             try
             {
                 string baseline_project = projectname.Substring(0, projectname.LastIndexOf("_")) + ext;
-                return Get_LastScan(baseline_project);
+                return GetLastScan(projectId, baseline_project);
             }
             catch (Exception e)
             {
@@ -911,7 +1114,7 @@ namespace CxQA
         #endregion
 
         #region Other Core
-        private void CompareScansForProject(string projectname)
+        private void CompareScansForProject(int projectId, string projectname)
         {
             // if (config.debug) log.Debug("-------->>> CompareScansForProject");
             string[] baseline = null, latestdev = null;
@@ -921,12 +1124,12 @@ namespace CxQA
                 try
                 {
                     CxWSResponseLoginData login = getSessionID(CredentialUtil.GetCredential("cxgate").Username, CredentialUtil.GetCredential("cxgate").Password);
-                    ViewState[CxGateViewStateKeys.SOAP_TOKEN] = login.SessionId;
+                    ViewState[ViewStateKeys.SOAP_TOKEN] = login.SessionId;
                 }
                 catch { Response.Write("Problem getting cxgate credential"); }
 
-                try { baseline = getBaselineScan(projectname, baseline_suffix_p); } catch { baseline = null; }
-                try { latestdev = Get_LastScan(projectname); } catch { latestdev = null; }
+                try { baseline = getBaselineScan(projectId, projectname, baseline_suffix_p); } catch { baseline = null; }
+                try { latestdev = GetLastScan(projectId, projectname); } catch { latestdev = null; }
 
                 if (projectname.Contains("_") && baseline != null && latestdev != null)
                 {
@@ -1036,36 +1239,13 @@ namespace CxQA
             // if (config.debug) log.Debug("-------->>> formatDate");
             return String.Format("{0:d} {0:t}", d);
         }
-        private string getVersion_OLD(long scanID)
-        {
-            // if (config.debug) log.Debug("-------->>> getVersion_OLD");
-
-            try
-            {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-
-                CxWSResponseScansDisplayExtendedData sdd = SOAPservice.GetScansDisplayDataForAllProjects(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString());
-                foreach (ScanDisplayData s in sdd.ScanList)
-                {
-                    if (s.ScanID == scanID)
-                        return s.CxVersion;
-                }
-            }
-            catch (Exception ex)
-            {
-                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
-            }
-
-            return "Version not found";
-        }
+        
         protected async void getComparison(string[] scanIDs)
         {
             // if (config.debug) log.Debug("-------->>> getComparison");
 
             // Current op - scan comparison
-            ViewState.Add(CxGateViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
 
             bool low = includeLowsInfoInReport.Checked;
             DataTable dt = new DataTable();
@@ -1073,30 +1253,62 @@ namespace CxQA
             dt.Columns.Add("Previous Scan", typeof(string));
             dt.Columns.Add("New Scan", typeof(string));
 
-            long oldscan = Int64.Parse(scanIDs[0]);
-            long newscan = Int64.Parse(scanIDs[1]);
+            int oldscan = int.Parse(scanIDs[0]);
+            int newscan = int.Parse(scanIDs[1]);
 
             ViewState["ids"] = oldscan + "_" + newscan;
 
-            log.Info(ViewState[CxGateViewStateKeys.USERNAME] + " chose scans:  " + oldscan + ", " + newscan);
+            log.Info(ViewState[ViewStateKeys.USERNAME] + " chose scans:  " + oldscan + ", " + newscan);
 
             try
             {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
+                dynamic old_scan = GetScan(oldscan);
+                dynamic new_scan = GetScan(newscan);
 
-                CxWSResponseScanSummary old_scan = SOAPservice.GetScanSummary(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), oldscan, true);
-                CxWSResponseScanSummary new_scan = SOAPservice.GetScanSummary(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), newscan, true);
+                String old_risk = old_scan.scanRisk.ToString();
+                String old_LOC = old_scan.scanState.linesOfCode.ToString();
+                String old_filesCount = old_scan.scanState.filesCount.ToString();
+                String old_project = old_scan.project.name.ToString();
+                String old_sourceOrigin = old_scan.scanState.path.ToString().Replace(";", "; ");
+                String old_isIncremental = old_scan.isIncremental.ToString();
+                String old_comment = old_scan.comment.ToString() == "" ? " " : old_scan.comment.ToString();
+                String old_scanType = old_scan.scanType.value.ToString();
 
-                dt.Rows.Add("Scan Risk", old_scan.ScanRisk.ToString(), new_scan.ScanRisk.ToString());
-                dt.Rows.Add("LOC", old_scan.LOC.ToString(), new_scan.LOC.ToString());
-                dt.Rows.Add("Files Count", old_scan.FilesCount.ToString(), new_scan.FilesCount.ToString());
-                dt.Rows.Add("Project Name", old_scan.ProjectName.ToString(), new_scan.ProjectName.ToString());
-                dt.Rows.Add("Team", old_scan.TeamName.ToString(), new_scan.TeamName.ToString());
-                dt.Rows.Add("Preset", old_scan.Preset.ToString(), new_scan.Preset.ToString());
-                dt.Rows.Add("Source Origin", old_scan.Path.ToString().Replace(";", "; "), new_scan.Path.ToString().Replace(";", "; "));
-                dt.Rows.Add("Scan Type", old_scan.ScanType.ToString(), new_scan.ScanType.ToString());
+                String new_risk = new_scan.scanRisk.ToString();
+                String new_LOC = new_scan.scanState.linesOfCode.ToString();
+                String new_filesCount = new_scan.scanState.filesCount.ToString();
+                String new_project = new_scan.project.name.ToString();
+                String new_sourceOrigin = new_scan.scanState.path.ToString().Replace(";", "; ");
+                String new_isIncremental = new_scan.isIncremental.ToString();
+                String new_comment = new_scan.comment.ToString() == "" ? " " : new_scan.comment.ToString();
+                String new_scanType = new_scan.scanType.value.ToString();
+
+                dt.Rows.Add("Scan Risk", old_risk, new_risk);
+                dt.Rows.Add("LOC", old_LOC, new_LOC);
+                dt.Rows.Add("Files Count", old_filesCount, new_filesCount);
+                dt.Rows.Add("Project Name", old_project, new_project);
+
+                Dictionary<String, String> teamsMap = Session[SessionDataKeys.TEAMS] as Dictionary<String, String>;
+                if (teamsMap != null)
+                {
+                    String oldScanTeam = String.Empty;
+                    String newScanTeam = String.Empty;
+                    teamsMap.TryGetValue(old_scan.owningTeamId.ToString(), out oldScanTeam);
+                    teamsMap.TryGetValue(new_scan.owningTeamId.ToString(), out newScanTeam);
+
+                    dt.Rows.Add("Team", oldScanTeam, newScanTeam);
+                }
+                else
+                {
+                    log.Error("Could not map team ID to full team name. Teams map not found in session.");
+                }
+
+                String old_preset = GetPresetName(int.Parse(old_scan.project.id.ToString()));
+                String new_preset = GetPresetName(int.Parse(new_scan.project.id.ToString()));
+                dt.Rows.Add("Preset", old_preset, new_preset);
+
+                dt.Rows.Add("Source Origin", old_sourceOrigin, new_sourceOrigin);
+                dt.Rows.Add("Scan Type", old_scanType, new_scanType);
 
                 string old_version = "", new_version = "";
                 try
@@ -1122,38 +1334,40 @@ namespace CxQA
                 }
 
                 dt.Rows.Add("Cx Version", old_version, new_version);
-                dt.Rows.Add("Is Incremental", old_scan.IsIncremental.ToString(), new_scan.IsIncremental.ToString());
-                dt.Rows.Add("Scan Comment", old_scan.Comment.ToString() == "" ? " " : old_scan.Comment.ToString(), new_scan.Comment.ToString() == "" ? " " : new_scan.Comment.ToString());
+                dt.Rows.Add("Is Incremental", old_isIncremental, new_isIncremental);
+                dt.Rows.Add("Scan Comment", old_comment, new_comment);
 
-                DateTime e = new DateTime(old_scan.ScanQueued.Year, old_scan.ScanQueued.Month, old_scan.ScanQueued.Day, old_scan.ScanQueued.Hour, old_scan.ScanQueued.Minute, old_scan.ScanQueued.Second);
-                DateTime f = new DateTime(new_scan.ScanQueued.Year, new_scan.ScanQueued.Month, new_scan.ScanQueued.Day, new_scan.ScanQueued.Hour, new_scan.ScanQueued.Minute, new_scan.ScanQueued.Second);
-                dt.Rows.Add("Scan Queued", e.Year == 1 ? "N/A" : formatDate(e), f.Year == 1 ? "N/A" : formatDate(f));
+                // Scan queue data is not available in REST API response
+                // DateTime e = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
+                // DateTime f = DateTime.Parse(new_scan.dateAndTime.startedOn.ToString());
+                // dt.Rows.Add("Scan Queued", e.Year == 1 ? "N/A" : formatDate(e), f.Year == 1 ? "N/A" : formatDate(f));
 
-                DateTime a = new DateTime(old_scan.EngineStart.Year, old_scan.EngineStart.Month, old_scan.EngineStart.Day, old_scan.EngineStart.Hour, old_scan.EngineStart.Minute, old_scan.EngineStart.Second);
-                DateTime b = new DateTime(new_scan.EngineStart.Year, new_scan.EngineStart.Month, new_scan.EngineStart.Day, new_scan.EngineStart.Hour, new_scan.EngineStart.Minute, new_scan.EngineStart.Second);
+                DateTime a = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
+                DateTime b = DateTime.Parse(new_scan.dateAndTime.startedOn.ToString());
                 dt.Rows.Add("Scan Start", a.Year == 1 ? "N/A" : formatDate(a), b.Year == 1 ? "N/A" : formatDate(b));
 
-                DateTime c = new DateTime(old_scan.EngineFinish.Year, old_scan.EngineFinish.Month, old_scan.EngineFinish.Day, old_scan.EngineFinish.Hour, old_scan.EngineFinish.Minute, old_scan.EngineFinish.Second);
-                DateTime d = new DateTime(new_scan.EngineFinish.Year, new_scan.EngineFinish.Month, new_scan.EngineFinish.Day, new_scan.EngineFinish.Hour, new_scan.EngineFinish.Minute, new_scan.EngineFinish.Second);
+                DateTime c = DateTime.Parse(old_scan.dateAndTime.finishedOn.ToString());
+                DateTime d = DateTime.Parse(new_scan.dateAndTime.finishedOn.ToString());
                 dt.Rows.Add("Scan Complete", c.Year == 1 ? "N/A" : formatDate(c), d.Year == 1 ? "N/A" : formatDate(d));
 
-                dt.Rows.Add("Total Scan Time", a.Year == 1 ? "N/A" : (TimeSpan.FromMinutes(Int64.Parse(old_scan.TotalScanTime.ToString()) / 10000000.0 / 60.0)).ToString(),
-                                                b.Year == 1 ? "N/A" : (TimeSpan.FromMinutes(Int64.Parse(new_scan.TotalScanTime.ToString()) / 10000000.0 / 60.0)).ToString());
+                TimeSpan old_duration = c.Subtract(a);
+                TimeSpan new_duration = d.Subtract(b);
+                dt.Rows.Add("Total Scan Time", a.Year == 1 ? "N/A" : old_duration.ToString(), b.Year == 1 ? "N/A" : new_duration.ToString());
 
                 string old_lang = "", new_lang = "";
 
-                foreach (CxWSQueryLanguageState s in old_scan.ScanLanguageStateCollection)
+                foreach (dynamic s in old_scan.scanState.languageStateCollection)
                 {
-                    old_lang += s.LanguageName + ", ";
+                    old_lang += s.languageName + ", ";
                 }
 
-                foreach (CxWSQueryLanguageState s in new_scan.ScanLanguageStateCollection)
+                foreach (dynamic s in new_scan.scanState.languageStateCollection)
                 {
-                    new_lang += s.LanguageName + ", ";
+                    new_lang += s.languageName + ", ";
                 }
 
                 dt.Rows.Add("Languages", old_lang.Trim().Trim(','), new_lang.Trim().Trim(','));
-                dt.Rows.Add("Custom Field Value(s)", ViewState[CxGateViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[CxGateViewStateKeys.CUSTOM_FIELDS].ToString(), ViewState[CxGateViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[CxGateViewStateKeys.CUSTOM_FIELDS].ToString());
+                dt.Rows.Add("Custom Field Value(s)", ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString(), ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString());
 
                 comparison.DataSource = dt;
                 comparison.DataBind();
@@ -1188,7 +1402,7 @@ namespace CxQA
                 log.Info("Old Scan:  " + oldscan);
                 log.Info("New Scan:  " + newscan);
 
-                CxWSResponseScanCompareSummary scs = SOAPservice.GetScanCompareSummary(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), oldscan, newscan);
+                CxWSResponseScanCompareSummary scs = SOAPservice.GetScanCompareSummary(ViewState[ViewStateKeys.SOAP_TOKEN].ToString(), oldscan, newscan);
                 if (!low)
                 {
                     scst.Rows.Add("New Issues", scs.High.New, scs.Medium.New, (scs.High.New + scs.Medium.New));
@@ -1231,7 +1445,7 @@ namespace CxQA
                 CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
                 SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
 
-                CxWSResponceScanResults results = SOAPservice.GetResultsForScan(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), newscan);
+                CxWSResponceScanResults results = SOAPservice.GetResultsForScan(ViewState[ViewStateKeys.SOAP_TOKEN].ToString(), newscan);
                 List<queryName> qsummary = new List<queryName>();
                 foreach (CxWSSingleResultData r in results.Results)
                 {
@@ -1251,17 +1465,12 @@ namespace CxQA
                                 break;
                         }//end switch
 
-                        //string comment = Get_Comment_History(newscan, r.PathId);
-                        //if (comment.Contains(projectName))
-                        //{
-
-                        int i = checkList(Get_Query_Name(newscan, r.QueryId) + " (" + sev + ")", qsummary);
+                        string query = Get_Query_Name(newscan, r.QueryId) + " (" + sev + ")";
+                        int i = checkList(query, qsummary);
                         if (i != -1)
                             qsummary[i].id++;
                         else
-                            qsummary.Add(new queryName(Get_Query_Name(newscan, r.QueryId) + " (" + sev + ")", 1));
-                        //ne.Rows.Add(r.PathId.ToString(), Get_Query_Name(newscan, r.QueryId), "Marked Not Exploitable", r.SourceFile, r.DestFile, sev, comment);
-                        //}
+                            qsummary.Add(new queryName(query, 1));
                     }
                 }
 
@@ -1286,6 +1495,70 @@ namespace CxQA
 
             //return true;
         }
+
+        private dynamic GetProjectScanSettings(int projectId)
+        {
+            try
+            {
+                String endpoint = "/cxrestapi/sast/scanSettings/" + projectId;
+
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    log.Debug("Deserializing response string");
+                    return JsonConvert.DeserializeObject(responseString);                    
+                }
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch requested data from server.<br/>Please see log for details.");
+                }
+            }
+            catch (Exception e)
+            {
+                ShowErrorMessage("Could not fetch requested data from server.<br/>" + e.Message);
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+
+            return null;
+        }
+
+        private dynamic GetPresetName(int projectId)
+        {
+            try
+            {
+                int presetId = GetProjectScanSettings(projectId).preset.id;
+
+                String endpoint = "/cxrestapi/sast/presets/" + presetId;
+
+                log.Debug("Calling GET on " + endpoint);
+                HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
+                log.Debug("Reading response from GET " + endpoint);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    log.Debug("Deserializing response string");
+                    dynamic preset = JsonConvert.DeserializeObject(responseString);
+                    return preset.name;
+                }
+                else
+                {
+                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    ShowErrorMessage("Could not fetch requested scan from server.<br/>Please see log for details.");
+                }
+            }
+            catch (Exception e)
+            {
+                ShowErrorMessage("Could not fetch requested scan from server.<br/>" + e.Message);
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+
+            return null;
+        }
+
         private bool checkList(long i)
         {
             // if (config.debug) log.Debug("-------->>> checkList(i)");
@@ -1332,7 +1605,7 @@ namespace CxQA
                     System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
                     CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
                     SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                    CxWSResponceQuerisForScan queries = SOAPservice.GetQueriesForScan(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), scanid);
+                    CxWSResponceQuerisForScan queries = SOAPservice.GetQueriesForScan(ViewState[ViewStateKeys.SOAP_TOKEN].ToString(), scanid);
 
                     foreach (CxWSQueryVulnerabilityData q in queries.Queries)
                     {
@@ -1352,29 +1625,12 @@ namespace CxQA
                 }
             }
         }
-        private string Get_Comment_History(long scanid, long pathid)
-        {
-            // if (config.debug) log.Debug("-------->>> Get_Comment_History");
-            try
-            {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
-                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
-                CxWSResponceResultPath history = SOAPservice.GetPathCommentsHistory(ViewState[CxGateViewStateKeys.SOAP_TOKEN].ToString(), scanid, pathid, ResultLabelTypeEnum.Remark);
-
-                return history.Path.Comment.Replace("ÿ", "[newline]");
-            }
-            catch (Exception e)
-            {
-                log.Error(e.Message + Environment.NewLine + e.StackTrace);
-                return "";
-            }
-        }
+        
         private void createPDFAndLink()
         {
             // if (config.debug) log.Debug("-------->>> createPDFAndLink");
 
-            String username = ViewState[CxGateViewStateKeys.USERNAME].ToString();
+            String username = ViewState[ViewStateKeys.USERNAME].ToString();
             log.Info(username + " generating report.");
             try
             {
@@ -1424,7 +1680,7 @@ namespace CxQA
                 {
                     XGraphics gfx = XGraphics.FromPdfPage(page);
                     XFont font = new XFont("Verdana", 11, XFontStyle.Regular);
-                    gfx.DrawString("  CxGate Report | " + DateTime.Now + " | Run by:  " + ViewState[CxGateViewStateKeys.USER_EMAIL].ToString(), font, XBrushes.Black, new XRect(0, 0, page.Width, 20), XStringFormats.BottomCenter);
+                    gfx.DrawString("  CxGate Report | " + DateTime.Now + " | Run by:  " + ViewState[ViewStateKeys.USER_EMAIL].ToString(), font, XBrushes.Black, new XRect(0, 0, page.Width, 20), XStringFormats.BottomCenter);
                 }
 
                 String filename = ViewState["ids"].ToString() + ".pdf";
@@ -1471,7 +1727,7 @@ namespace CxQA
                 e.Row.Cells[1].HorizontalAlign = HorizontalAlign.Center;
             }
         }
-        protected async Task GenerateAndEmailDetailsReport()
+        protected void GenerateAndEmailDetailsReport()
         {
             // if (config.debug) log.Debug("-------->>> GenerateAndEmailDetailsReport");
 
@@ -1484,7 +1740,7 @@ namespace CxQA
 
                 process.StartInfo.FileName = HttpContext.Current.Server.MapPath("~/") + "\\bin\\extract.exe";
                 log.Debug("Extract process run: " + process.StartInfo.FileName);
-                String args = projectsTeamsList.SelectedValue + " " + ViewState[CxGateViewStateKeys.USER_EMAIL].ToString() +
+                String args = projectsTeamsList.SelectedValue + " " + ViewState[ViewStateKeys.USER_EMAIL].ToString() +
                     " \"" + HttpContext.Current.Server.MapPath("~/") + "reports\\CxExtract_" + secondsSinceEpoch + ".xlsx\" " + config.cxserver + " \"" +
                     HttpContext.Current.Server.MapPath("~/") + @"cxqa.properties" + "\"";
 
@@ -1498,7 +1754,7 @@ namespace CxQA
                 process.StartInfo.CreateNoWindow = false;
                 process.Start();
 
-                ShowMessage("Report has been requested and will be sent to " + ViewState[CxGateViewStateKeys.USER_EMAIL].ToString() + ".");
+                ShowMessage("Report has been requested and will be sent to " + ViewState[ViewStateKeys.USER_EMAIL].ToString() + ".");
             }
             catch (Exception ex)
             {
@@ -1572,7 +1828,7 @@ namespace CxQA
             else
                 c.User = authDomainsDropDown.Text + "\\" + un;
 
-            ViewState[CxGateViewStateKeys.USERNAME] = c.User;
+            ViewState[ViewStateKeys.USERNAME] = c.User;
             c.Pass = pw;
             try
             {
@@ -1598,7 +1854,7 @@ namespace CxQA
                 if (login.IsSuccesfull)
                 {
                     ClearErrorMessage();
-                    ViewState[CxGateViewStateKeys.SOAP_TOKEN] = login.SessionId;
+                    ViewState[ViewStateKeys.SOAP_TOKEN] = login.SessionId;
 
                     String un = "";
                     if (authDomainsDropDown.Text.Equals("Application"))
@@ -1607,9 +1863,9 @@ namespace CxQA
                         un = authDomainsDropDown.Text + "\\" + user.Text;
 
                     String token = await getAuthToken(un, pass.Text);
-                    ViewState[CxGateViewStateKeys.TOKEN] = token;
+                    ViewState[ViewStateKeys.TOKEN] = token;
 
-                    ViewState.Add(CxGateViewStateKeys.USER_EMAIL, login.Email);
+                    ViewState.Add(ViewStateKeys.USER_EMAIL, login.Email);
                     if (config.debug) log.Debug("Email address of requester:  " + login.Email);
 
                     ShowProjectsForm(config.showDetailsReport);
@@ -1624,7 +1880,7 @@ namespace CxQA
             }
             else
             {
-                ShowErrorMessage("Could not log in as " + ViewState[CxGateViewStateKeys.USERNAME] + ".  Please try again.");
+                ShowErrorMessage("Could not log in as " + ViewState[ViewStateKeys.USERNAME] + ".  Please try again.");
             }
         }
         #endregion
@@ -1647,7 +1903,7 @@ namespace CxQA
                 String response = await authPOST(body);
                 dynamic json = JObject.Parse(response);
                 // Refresh the refresh token in the view state
-                ViewState[CxGateViewStateKeys.TOKEN] = (String)json.refresh_token;
+                ViewState[ViewStateKeys.TOKEN] = (String)json.refresh_token;
                 jwt = json.access_token;
             }
             catch (Exception ex)
@@ -1659,8 +1915,8 @@ namespace CxQA
             if (String.IsNullOrEmpty(jwt))
             {
                 log.Error("Unauthenticated access. Redirecting to login page.");
-                ViewState[CxGateViewStateKeys.USERNAME] = null;
-                ViewState[CxGateViewStateKeys.TOKEN] = null;
+                ViewState[ViewStateKeys.USERNAME] = null;
+                ViewState[ViewStateKeys.TOKEN] = null;
                 Response.Redirect("index.aspx", false);
                 return null;
             }
@@ -1705,6 +1961,43 @@ namespace CxQA
             var response = await client.PostAsync(url, content);
 
             return await response.Content.ReadAsStringAsync();
+        }
+
+        private HttpResponseMessage REST_POST(String endpoint, string bearerToken, Dictionary<string, string> parameters)
+        {
+            // if (config.debug) log.Debug("-------->>> REST_POST");
+
+            endpoint = endpoint.StartsWith("/") ? endpoint : ("/" + endpoint);
+            String url = config.cxserver + endpoint;
+
+            HttpClient client = new HttpClient();            
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);            
+            
+            String json = parameters == null ? String.Empty : JsonConvert.SerializeObject(parameters);
+            
+            if (config.debug) log.Debug("Executing POST " + url + " with " + json);
+
+            StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
+            return client.PostAsync(url, content).Result;
+        }
+        private HttpResponseMessage REST_GET(String apiVersion, String endpoint, string bearerToken, Dictionary<string, string> parameters)
+        {
+            // if (config.debug) log.Debug("-------->>> getToken");
+
+            endpoint = endpoint.StartsWith("/") ? endpoint : ("/" + endpoint);
+            if (parameters != null)
+            {
+                endpoint += string.Join("&", parameters.Select(kvp => $"{WebUtility.UrlEncode(kvp.Key)}={WebUtility.UrlEncode(kvp.Value.ToString())}"));
+            }
+            String url = config.cxserver + endpoint;
+
+            if (config.debug) log.Debug("Executing GET " + url);
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);
+            client.DefaultRequestHeaders.Add("Accept", "application/json;v=" + apiVersion);
+
+            return client.GetAsync(url).Result;
         }
         #endregion
 
