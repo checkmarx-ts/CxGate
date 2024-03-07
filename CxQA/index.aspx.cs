@@ -110,11 +110,10 @@ namespace CxQA
     public partial class Index : System.Web.UI.Page
     {
         #region Variable declarations
-        private static readonly String VERSION = "3.02";
+        private static readonly String VERSION = "3.03";
         private CxGateConfig config = new CxGateConfig();
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private static readonly String baseline_suffix_p = "_PRD";
-        private static readonly String baseline_suffix_q = "_QA";
         private bool ignoreFilter = false;
         private String jwtToken = String.Empty;
         List<queryName> queryNames = new List<queryName>();
@@ -894,14 +893,13 @@ namespace CxQA
             divComparisonForm.Visible = false;
 
             string[] p_prd = null;
-            try { p_prd = getBaselineScan(projectId, projectName, baseline_suffix_p); }
+            try {
+
+                p_prd = getBaselineScan(projectName, baseline_suffix_p); 
+            }
             catch { p_prd = null; }
 
-            string[] p_qa = null;
-            try { p_qa = getBaselineScan(projectId, projectName, baseline_suffix_q); }
-            catch { p_qa = null; }
-
-            if (project_list.SelectedIndex != 0 && (p_prd != null || p_qa != null))
+            if (project_list.SelectedIndex != 0 && (p_prd != null))
             {
                 ClearErrorMessage();
                 divScansForm.Visible = true;
@@ -985,34 +983,6 @@ namespace CxQA
                         }
                     }
 
-                    if (p_qa != null)
-                    {
-                        sdd = GetScanList(int.Parse(p_qa[2]));
-                        if (sdd != null)
-                        {
-                            foreach (var s in sdd)
-                            {
-                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
-                                var isIncremental = bool.Parse(s.isIncremental.ToString());
-                                var scanId = int.Parse(s.id.ToString());
-                                var comment = s.comment.ToString();
-                                var isLocked = bool.Parse(s.isLocked.ToString());
-                                var origin = s.origin.ToString();
-
-                                string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
-                                    " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
-                                if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.baselineScanAge)) > 0 || config.baselineScanAge == 0)
-                                {
-                                    Match match = regex.Match(comment);
-                                    if (!match.Success || true /*ignoreFilter*/)
-                                    {
-                                        dtp.Rows.Add(false, p_qa[1], scanId, origin, isIncremental, datetime, comment, isLocked);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     if (dt.Rows.Count >= 1 && dtp.Rows.Count >= 1)
                     {
                         compare.Visible = true;
@@ -1034,7 +1004,7 @@ namespace CxQA
                         if (dt.Rows.Count == 0)
                             messageStr = "There are no development scans to compare for the selected project.";
                         else if (dtp.Rows.Count == 0 && config.baselineScanAge == 0)
-                            messageStr = "There are no production or QA scans to compare for the selected project.";
+                            messageStr = "There are no production scans to compare for the selected project.";
                         else if (dtp.Rows.Count == 0)
                             messageStr = "No baseline scans were run in the selected project in the last " + config.baselineScanAge + " days.";
                         else
@@ -1097,13 +1067,43 @@ namespace CxQA
                 return "N/A";
             }
         }
-        private string[] getBaselineScan(int projectId, string projectname, string ext)
+        private string[] getBaselineScan(string projectname, string ext)
         {
             // if (config.debug) log.Debug("-------->>> getBaselineScan");
             try
             {
                 string baseline_project = projectname.Substring(0, projectname.LastIndexOf("_")) + ext;
-                return GetLastScan(projectId, baseline_project);
+                int project_id = -1;
+
+                // Get project ID
+                try
+                {
+                    String endpoint = "/cxrestapi/projects?projectName=" + baseline_project;
+
+                    log.Debug("Calling GET on " + endpoint);
+                    HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
+                    log.Debug("Reading response from GET " + endpoint);
+                    String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                    if (httpResponse.IsSuccessStatusCode)
+                    {
+                        log.Debug("Deserializing response string");
+                        dynamic project = JsonConvert.DeserializeObject(responseString);
+
+                        project_id = project[0].id;
+                    }
+                    else
+                    {
+                        log.Error("GET call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                        ShowErrorMessage("Could not fetch project ID for PRD project from server.<br/>Please see log for details.");
+                    }
+                }
+                catch (Exception e)
+                {
+                    ShowErrorMessage("Could not fetch project ID for PRD project from server.<br/>" + e.Message);
+                    log.Error(e.Message + Environment.NewLine + e.StackTrace);
+                }
+
+                return GetLastScan(project_id, baseline_project);
             }
             catch (Exception e)
             {
@@ -1117,7 +1117,7 @@ namespace CxQA
         private void CompareScansForProject(int projectId, string projectname)
         {
             // if (config.debug) log.Debug("-------->>> CompareScansForProject");
-            string[] baseline = null, latestdev = null;
+            string[] baseline, latestdev;
 
             if (projectname != null)
             {
@@ -1128,7 +1128,7 @@ namespace CxQA
                 }
                 catch { Response.Write("Problem getting cxgate credential"); }
 
-                try { baseline = getBaselineScan(projectId, projectname, baseline_suffix_p); } catch { baseline = null; }
+                try { baseline = getBaselineScan(projectname, baseline_suffix_p); } catch { baseline = null; }
                 try { latestdev = GetLastScan(projectId, projectname); } catch { latestdev = null; }
 
                 if (projectname.Contains("_") && baseline != null && latestdev != null)
@@ -1140,7 +1140,7 @@ namespace CxQA
                 }
                 else
                 {
-                    String errMsg = "No PRD/dev scans found for requested project.";
+                    String errMsg = "No PRD/DEV scans found for requested project.";
                     log.Error("errMsg");
                     ShowErrorMessage(errMsg);
                 }

@@ -98,7 +98,7 @@
 
                         <div runat="server" id="divScansForm" visible="false">
                             <strong>
-                                <p style="color: forestgreen;">1.  Select the latest scan from either the production or QA project.</p>
+                                <p style="color: forestgreen;">1.  Select the latest PRD scan.</p>
                             </strong>
                             <div class="withScroll">
                                 <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="prd_latest" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="prod_scans_RowDataBound" CssClass="scanList" />
@@ -106,7 +106,7 @@
                             <br />
                             <br />
                             <strong>
-                                <p style="color: forestgreen;">2.  Select a scan from the dev project you wish to compare.</p>
+                                <p style="color: forestgreen;">2.  Select a scan from DEV that you wish to compare.</p>
                             </strong>
                             <div class="withScroll">
                                 <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="project_scans" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="project_scans_RowDataBound" CssClass="scanList" />
