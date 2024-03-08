@@ -128,11 +128,11 @@
                                 <div>
                                     <b>Scan Comparison</b>
                                     <p />
-                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="counts" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="counts_RowDataBound" />
+                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="comparison" AutoGenerateColumns="true" CellPadding="4" CssClass="compareTable" />
                                     <br />
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="not_exploitable" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="not_exploitable_RowDataBound" />
                                     <br />
-                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="comparison" AutoGenerateColumns="true" CellPadding="4" CssClass="compareTable" />
+                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="counts" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="counts_RowDataBound" />
                                 </div>
                             </asp:Panel>
                             <p />

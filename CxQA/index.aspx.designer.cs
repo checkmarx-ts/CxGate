@@ -276,13 +276,13 @@ namespace CxQA
         protected global::System.Web.UI.WebControls.Panel ScanComparePanel;
 
         /// <summary>
-        /// counts control.
+        /// comparison control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.GridView counts;
+        protected global::System.Web.UI.WebControls.GridView comparison;
 
         /// <summary>
         /// not_exploitable control.
@@ -294,13 +294,13 @@ namespace CxQA
         protected global::System.Web.UI.WebControls.GridView not_exploitable;
 
         /// <summary>
-        /// comparison control.
+        /// counts control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.GridView comparison;
+        protected global::System.Web.UI.WebControls.GridView counts;
 
         /// <summary>
         /// divReportUrl control.
