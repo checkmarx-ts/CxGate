@@ -6,6 +6,19 @@
 <head runat="server">
     <title>Checkmarx Scan Comparison</title>
     <link rel="stylesheet" runat="server" media="screen" href="resources/stylesheets/cxgate.css" />
+    <!-- This script is needed to ensure only one radio button can be selected in the scans dropdowns -->
+    <script type="text/javascript">
+    function SetUniqueRadioButton(nameregex, current) {
+        for (var i = 0; i < document.forms[0].elements.length; i++) {
+            var e = document.forms[0].elements[i];
+            if (e.type == 'radio' && e.name.match(nameregex)) {
+                e.checked = false;
+            }
+        }
+        current.checked = true;
+    }
+    </script>
+
 </head>
 
 <body>
@@ -101,7 +114,23 @@
                                 <p style="color: forestgreen;">1.  Select the latest PRD scan.</p>
                             </strong>
                             <div class="withScroll">
-                                <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="prd_latest" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="prod_scans_RowDataBound" CssClass="scanList" />
+                                <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="prd_latest" AutoGenerateColumns="false" CellPadding="4" OnRowDataBound="prod_scans_RowDataBound" CssClass="scanList">
+                                    <Columns>
+                                        <asp:TemplateField HeaderText="Compare">
+                                            <ItemTemplate>
+                                                <asp:RadioButton ID="RadioButtonComparePrd" runat="server" GroupName="CompareGroupPrd" 
+                                                    Checked='<%# Convert.ToBoolean(Eval("Compare")) %>' onClick="SetUniqueRadioButton(/CompareGroupPrd$/, this)" />
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:BoundField DataField="Project" HeaderText="Project" />
+                                        <asp:BoundField DataField="Scan ID" HeaderText="Scan ID" />
+                                        <asp:BoundField DataField="Scan Origin" HeaderText="Scan Origin" />
+                                        <asp:BoundField DataField="Is Incremental" HeaderText="Is Incremental" />
+                                        <asp:BoundField DataField="Scan Finished" HeaderText="Scan Finished" />
+                                        <asp:BoundField DataField="Comments" HeaderText="Comments" />
+                                        <asp:BoundField DataField="Locked" HeaderText="Locked" />
+                                    </Columns>
+                                </asp:GridView>
                             </div>
                             <br />
                             <br />
@@ -109,7 +138,23 @@
                                 <p style="color: forestgreen;">2.  Select a scan from DEV that you wish to compare.</p>
                             </strong>
                             <div class="withScroll">
-                                <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="project_scans" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="project_scans_RowDataBound" CssClass="scanList" />
+                                <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="project_scans" AutoGenerateColumns="false" CellPadding="4" OnRowDataBound="project_scans_RowDataBound" CssClass="scanList">
+                                    <Columns>
+                                        <asp:TemplateField HeaderText="Compare">
+                                            <ItemTemplate>
+                                                <asp:RadioButton ID="RadioButtonCompareDev" runat="server" GroupName="CompareGroupDev" 
+                                                    Checked='<%# Convert.ToBoolean(Eval("Compare")) %>' onClick="SetUniqueRadioButton(/CompareGroupDev$/, this)" />
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:BoundField DataField="Project" HeaderText="Project" />
+                                        <asp:BoundField DataField="Scan ID" HeaderText="Scan ID" />
+                                        <asp:BoundField DataField="Scan Origin" HeaderText="Scan Origin" />
+                                        <asp:BoundField DataField="Is Incremental" HeaderText="Is Incremental" />
+                                        <asp:BoundField DataField="Scan Finished" HeaderText="Scan Finished" />
+                                        <asp:BoundField DataField="Comments" HeaderText="Comments" />
+                                        <asp:BoundField DataField="Locked" HeaderText="Locked" />
+                                    </Columns>
+                                </asp:GridView>
                             </div>
                             <br />
                             <strong>

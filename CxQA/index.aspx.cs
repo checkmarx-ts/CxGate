@@ -423,8 +423,8 @@ namespace CxQA
 
             foreach (GridViewRow row in prd_latest.Rows)
             {
-                CheckBox cb = (CheckBox)row.Cells[0].Controls[0];
-                if (cb.Checked)
+                RadioButton rb = (RadioButton)row.FindControl("RadioButtonComparePrd");
+                if (rb.Checked)
                 {
                     baseline = DateTime.Parse(row.Cells[5].Text);
                     scanIDs[0] = row.Cells[2].Text.ToString();
@@ -434,8 +434,8 @@ namespace CxQA
 
             foreach (GridViewRow row in project_scans.Rows)
             {
-                CheckBox cb = (CheckBox)row.Cells[0].Controls[0];
-                if (cb.Checked)
+                RadioButton rb = (RadioButton)row.FindControl("RadioButtonCompareDev");
+                if (rb.Checked)
                 {
                     if (row.Cells[5].Text.ToString().Equals("N/A"))
                         noscanrun = true;
@@ -450,7 +450,7 @@ namespace CxQA
             string errMsg = string.Empty;
             if (checked_count != 2 || scanIDs[0] == null || scanIDs[1] == null)
             {
-                errMsg = "Please select one PRD/QA and one DEV scans to compare.";
+                errMsg = "Please select only one PRD/QA and one DEV scan to compare.";
             }
             else if (noscanrun)
             {
@@ -904,25 +904,25 @@ namespace CxQA
                 ClearErrorMessage();
                 divScansForm.Visible = true;
 
-                DataTable dt = new DataTable();
-                dt.Columns.Add("Compare", typeof(bool));
-                dt.Columns.Add("Project", typeof(string));
-                dt.Columns.Add("Scan ID", typeof(string));
-                dt.Columns.Add("Scan Origin", typeof(string));
-                dt.Columns.Add("Is Incremental", typeof(bool));
-                dt.Columns.Add("Scan Finished", typeof(string));
-                dt.Columns.Add("Comments", typeof(string));
-                dt.Columns.Add("Locked", typeof(bool));
+                DataTable dt_dev = new DataTable();
+                dt_dev.Columns.Add("Compare", typeof(bool));
+                dt_dev.Columns.Add("Project", typeof(string));
+                dt_dev.Columns.Add("Scan ID", typeof(string));
+                dt_dev.Columns.Add("Scan Origin", typeof(string));
+                dt_dev.Columns.Add("Is Incremental", typeof(bool));
+                dt_dev.Columns.Add("Scan Finished", typeof(string));
+                dt_dev.Columns.Add("Comments", typeof(string));
+                dt_dev.Columns.Add("Locked", typeof(bool));
 
-                DataTable dtp = new DataTable();
-                dtp.Columns.Add("Compare", typeof(bool));
-                dtp.Columns.Add("Project", typeof(string));
-                dtp.Columns.Add("Scan ID", typeof(string));
-                dtp.Columns.Add("Scan Origin", typeof(string));
-                dtp.Columns.Add("Is Incremental", typeof(bool));
-                dtp.Columns.Add("Scan Finished", typeof(string));
-                dtp.Columns.Add("Comments", typeof(string));
-                dtp.Columns.Add("Locked", typeof(bool));
+                DataTable dt_prd = new DataTable();
+                dt_prd.Columns.Add("Compare", typeof(bool));
+                dt_prd.Columns.Add("Project", typeof(string));
+                dt_prd.Columns.Add("Scan ID", typeof(string));
+                dt_prd.Columns.Add("Scan Origin", typeof(string));
+                dt_prd.Columns.Add("Is Incremental", typeof(bool));
+                dt_prd.Columns.Add("Scan Finished", typeof(string));
+                dt_prd.Columns.Add("Comments", typeof(string));
+                dt_prd.Columns.Add("Locked", typeof(bool));
 
                 try
                 {
@@ -949,7 +949,7 @@ namespace CxQA
                                 Match match = regex.Match(comment);
                                 if ((!match.Success || ignoreFilter) && !isIncremental)
                                 {
-                                    dt.Rows.Add(false, projectName, scanId, origin, isIncremental, getEngineFinishTime(finishedOn), comment, isLocked);
+                                    dt_dev.Rows.Add(false, projectName, scanId, origin, isIncremental, getEngineFinishTime(finishedOn), comment, isLocked);
                                 }
                             }
                         }
@@ -976,23 +976,23 @@ namespace CxQA
                                     Match match = regex.Match(comment);
                                     if (!match.Success || true /*ignoreFilter*/)
                                     {
-                                        dtp.Rows.Add(false, p_prd[1], scanId, origin, isIncremental, datetime, comment, isLocked);
+                                        dt_prd.Rows.Add(false, p_prd[1], scanId, origin, isIncremental, datetime, comment, isLocked);
                                     }
                                 }
                             }
                         }
                     }
 
-                    if (dt.Rows.Count >= 1 && dtp.Rows.Count >= 1)
+                    if (dt_dev.Rows.Count >= 1 && dt_prd.Rows.Count >= 1)
                     {
                         compare.Visible = true;
                         divScansForm.Visible = true;
                         ClearErrorMessage();
 
-                        prd_latest.DataSource = dtp;
+                        prd_latest.DataSource = dt_prd;
                         prd_latest.DataBind();
 
-                        project_scans.DataSource = dt;
+                        project_scans.DataSource = dt_dev;
                         project_scans.DataBind();
                     }
                     else
@@ -1001,11 +1001,11 @@ namespace CxQA
                         divScansForm.Visible = false;
                         String messageStr = String.Empty;
                         String errorStr = String.Empty;
-                        if (dt.Rows.Count == 0)
+                        if (dt_dev.Rows.Count == 0)
                             messageStr = "There are no development scans to compare for the selected project.";
-                        else if (dtp.Rows.Count == 0 && config.baselineScanAge == 0)
+                        else if (dt_prd.Rows.Count == 0 && config.baselineScanAge == 0)
                             messageStr = "There are no production scans to compare for the selected project.";
-                        else if (dtp.Rows.Count == 0)
+                        else if (dt_prd.Rows.Count == 0)
                             messageStr = "No baseline scans were run in the selected project in the last " + config.baselineScanAge + " days.";
                         else
                             errorStr = "Scans for the baseline and development project could not be found. Please contact the administrator.";
@@ -1212,8 +1212,8 @@ namespace CxQA
 
             if (e.Row.RowType == DataControlRowType.DataRow)
             {
-                CheckBox cb = (CheckBox)e.Row.Cells[0].Controls[0];
-                cb.Enabled = true;
+                RadioButton rb = (RadioButton)e.Row.FindControl("RadioButtonCompareDev");
+                rb.Enabled = true;
 
                 e.Row.Cells[0].HorizontalAlign = HorizontalAlign.Center;
                 e.Row.Cells[4].HorizontalAlign = HorizontalAlign.Center;
@@ -1226,8 +1226,8 @@ namespace CxQA
 
             if (e.Row.RowType == DataControlRowType.DataRow)
             {
-                CheckBox cb = (CheckBox)e.Row.Cells[0].Controls[0];
-                cb.Enabled = true;
+                RadioButton rb = (RadioButton)e.Row.FindControl("RadioButtonComparePrd"); ;
+                rb.Enabled = true;
 
                 e.Row.Cells[0].HorizontalAlign = HorizontalAlign.Center;
                 e.Row.Cells[4].HorizontalAlign = HorizontalAlign.Center;
