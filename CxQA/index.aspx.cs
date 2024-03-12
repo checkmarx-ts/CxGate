@@ -1283,6 +1283,7 @@ namespace CxQA
                 String new_comment = new_scan.comment.ToString() == "" ? " " : new_scan.comment.ToString();
                 String new_scanType = new_scan.scanType.value.ToString();
 
+                dt.Rows.Add("Scan ID", scanIDs[0], scanIDs[1]);
                 dt.Rows.Add("Scan Risk", old_risk, new_risk);
                 dt.Rows.Add("LOC", old_LOC, new_LOC);
                 dt.Rows.Add("Files Count", old_filesCount, new_filesCount);
