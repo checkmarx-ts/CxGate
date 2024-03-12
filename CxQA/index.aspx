@@ -84,13 +84,13 @@
                             <table width="100%">
                                 <tr>
                                     <td width="50%" align="left"><b>Run CxGate Report</b></td>
-                                    <td width="50%" align="left" runat="server" id="details_lbl"><b>Vulnerability Details Report</b></td>
+                                    <!--<td width="50%" align="left" runat="server" id="details_lbl"><b>Vulnerability Details Report</b></td>-->
                                 </tr>
                                 <tr>
                                     <td align="left">
                                         <asp:DropDownList runat="server" ID="project_list" OnSelectedIndexChanged="UI_EventRouter" AutoPostBack="true" /></td>
-                                    <td runat="server" id="details_select" align="left" width="85%">
-                                        <asp:DropDownList runat="server" ID="projectsTeamsList" OnSelectedIndexChanged="UI_EventRouter" AutoPostBack="true" /></td>
+                                    <!--<td runat="server" id="details_select" align="left" width="85%">
+                                        <asp:DropDownList runat="server" ID="projectsTeamsList" OnSelectedIndexChanged="UI_EventRouter" AutoPostBack="true" /></td>-->
                                 </tr>
                             </table>
                             <br />
