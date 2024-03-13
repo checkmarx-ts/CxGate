@@ -1269,6 +1269,8 @@ namespace CxQA
                 String old_LOC = old_scan.scanState.linesOfCode.ToString();
                 String old_filesCount = old_scan.scanState.filesCount.ToString();
                 String old_project = old_scan.project.name.ToString();
+                String old_initiator = old_scan.initiatorName.ToString();
+                String old_scanOrigin = old_scan.origin.ToString();
                 String old_sourceOrigin = old_scan.scanState.path.ToString().Replace(";", "; ");
                 String old_isIncremental = old_scan.isIncremental.ToString();
                 String old_comment = old_scan.comment.ToString() == "" ? " " : old_scan.comment.ToString();
@@ -1278,6 +1280,8 @@ namespace CxQA
                 String new_LOC = new_scan.scanState.linesOfCode.ToString();
                 String new_filesCount = new_scan.scanState.filesCount.ToString();
                 String new_project = new_scan.project.name.ToString();
+                String new_initiator = new_scan.initiatorName.ToString();
+                String new_scanOrigin = new_scan.origin.ToString();
                 String new_sourceOrigin = new_scan.scanState.path.ToString().Replace(";", "; ");
                 String new_isIncremental = new_scan.isIncremental.ToString();
                 String new_comment = new_scan.comment.ToString() == "" ? " " : new_scan.comment.ToString();
@@ -1308,7 +1312,9 @@ namespace CxQA
                 String new_preset = GetPresetName(int.Parse(new_scan.project.id.ToString()));
                 dt.Rows.Add("Preset", old_preset, new_preset);
 
-                dt.Rows.Add("Source Origin", old_sourceOrigin, new_sourceOrigin);
+                dt.Rows.Add("Initiator", old_initiator, new_initiator);
+                dt.Rows.Add("Origin", old_scanOrigin, new_scanOrigin);
+                dt.Rows.Add("Source", old_sourceOrigin, new_sourceOrigin);
                 dt.Rows.Add("Scan Type", old_scanType, new_scanType);
 
                 string old_version = "", new_version = "";
