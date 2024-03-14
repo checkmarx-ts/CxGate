@@ -125,7 +125,6 @@
                                         <asp:BoundField DataField="Project" HeaderText="Project" />
                                         <asp:BoundField DataField="Scan ID" HeaderText="Scan ID" />
                                         <asp:BoundField DataField="Scan Origin" HeaderText="Scan Origin" />
-                                        <asp:BoundField DataField="Is Incremental" HeaderText="Is Incremental" />
                                         <asp:BoundField DataField="Scan Finished" HeaderText="Scan Finished" />
                                         <asp:BoundField DataField="Comments" HeaderText="Comments" />
                                         <asp:BoundField DataField="Locked" HeaderText="Locked" />
@@ -149,7 +148,6 @@
                                         <asp:BoundField DataField="Project" HeaderText="Project" />
                                         <asp:BoundField DataField="Scan ID" HeaderText="Scan ID" />
                                         <asp:BoundField DataField="Scan Origin" HeaderText="Scan Origin" />
-                                        <asp:BoundField DataField="Is Incremental" HeaderText="Is Incremental" />
                                         <asp:BoundField DataField="Scan Finished" HeaderText="Scan Finished" />
                                         <asp:BoundField DataField="Comments" HeaderText="Comments" />
                                         <asp:BoundField DataField="Locked" HeaderText="Locked" />

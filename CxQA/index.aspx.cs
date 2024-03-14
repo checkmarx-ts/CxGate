@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using System.Windows.Documents;
 using TheArtOfDev.HtmlRenderer.Core;
 using TheArtOfDev.HtmlRenderer.PdfSharp;
 using static OfficeOpenXml.ExcelErrorValue;
@@ -426,7 +427,7 @@ namespace CxQA
                 RadioButton rb = (RadioButton)row.FindControl("RadioButtonComparePrd");
                 if (rb.Checked)
                 {
-                    baseline = DateTime.Parse(row.Cells[5].Text);
+                    baseline = DateTime.Parse(row.Cells[4].Text);
                     scanIDs[0] = row.Cells[2].Text.ToString();
                     checked_count++;
                 }
@@ -440,7 +441,7 @@ namespace CxQA
                     if (row.Cells[5].Text.ToString().Equals("N/A"))
                         noscanrun = true;
                     else
-                        dev = Convert.ToDateTime(row.Cells[5].Text);
+                        dev = Convert.ToDateTime(row.Cells[4].Text);
 
                     scanIDs[1] = row.Cells[2].Text.ToString();
                     checked_count++;
@@ -762,7 +763,7 @@ namespace CxQA
 
             try
             {
-                String endpoint = "/cxrestapi/sast/scans?last=1&scanStatus=Finished&projectId=" + projectId;
+                String endpoint = "/cxrestapi/sast/scans?scanStatus=Finished&projectId=" + projectId;
 
                 log.Debug("Calling GET on " + endpoint);
                 HttpResponseMessage httpResponse = REST_GET("1.0", endpoint, jwtToken, null);
@@ -772,8 +773,25 @@ namespace CxQA
                 {
                     log.Debug("Deserializing response string");
                     dynamic scan = JsonConvert.DeserializeObject(responseString);
-                    
-                    return new string[] { scan[0].id.ToString(), projectName, projectId.ToString() };
+
+                    string lastFullScanId = null;
+
+                    // Filter and return the ID of the last non-incremental scan
+                    if (scan != null) {
+                        foreach (var s in scan)
+                        {
+                            var isIncremental = bool.Parse(s.isIncremental.ToString());
+                            if (!isIncremental)
+                            {
+                                lastFullScanId = s.id.ToString();
+                            }
+                            if (lastFullScanId != null)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    return new string[] { lastFullScanId, projectName, projectId.ToString() };
                 }
                 else
                 {
@@ -909,7 +927,7 @@ namespace CxQA
                 dt_dev.Columns.Add("Project", typeof(string));
                 dt_dev.Columns.Add("Scan ID", typeof(string));
                 dt_dev.Columns.Add("Scan Origin", typeof(string));
-                dt_dev.Columns.Add("Is Incremental", typeof(bool));
+                //dt_dev.Columns.Add("Is Incremental", typeof(bool));
                 dt_dev.Columns.Add("Scan Finished", typeof(string));
                 dt_dev.Columns.Add("Comments", typeof(string));
                 dt_dev.Columns.Add("Locked", typeof(bool));
@@ -919,7 +937,7 @@ namespace CxQA
                 dt_prd.Columns.Add("Project", typeof(string));
                 dt_prd.Columns.Add("Scan ID", typeof(string));
                 dt_prd.Columns.Add("Scan Origin", typeof(string));
-                dt_prd.Columns.Add("Is Incremental", typeof(bool));
+                //dt_prd.Columns.Add("Is Incremental", typeof(bool));
                 dt_prd.Columns.Add("Scan Finished", typeof(string));
                 dt_prd.Columns.Add("Comments", typeof(string));
                 dt_prd.Columns.Add("Locked", typeof(bool));
@@ -933,10 +951,23 @@ namespace CxQA
                     dynamic sdd = GetScanList(projectId);
                     if (sdd != null)
                     {
+                        dynamic nonIncrementalDevScans = new JArray();
+
+                        // First filter out incremental scans
                         foreach (var s in sdd)
                         {
-                            var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
                             var isIncremental = bool.Parse(s.isIncremental.ToString());
+                            if (!isIncremental)
+                            {
+                                nonIncrementalDevScans.Add(s);
+                            }
+                        }
+
+                        foreach (var s in nonIncrementalDevScans)
+                        {
+
+                            var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
+                            //var isIncremental = bool.Parse(s.isIncremental.ToString());
                             var scanId = int.Parse(s.id.ToString());
                             var comment = s.comment.ToString();
                             var isLocked = bool.Parse(s.isLocked.ToString());
@@ -947,9 +978,9 @@ namespace CxQA
                             if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                             {
                                 Match match = regex.Match(comment);
-                                if ((!match.Success || ignoreFilter) && !isIncremental)
+                                if (!match.Success || ignoreFilter)
                                 {
-                                    dt_dev.Rows.Add(false, projectName, scanId, origin, isIncremental, getEngineFinishTime(finishedOn), comment, isLocked);
+                                    dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), comment, isLocked);
                                 }
                             }
                         }
@@ -960,10 +991,23 @@ namespace CxQA
                         sdd = GetScanList(int.Parse(p_prd[2]));
                         if (sdd != null)
                         {
+                            dynamic nonIncrementalPrdScans = new JArray();
+
+                            // First filter out incremental scans
                             foreach (var s in sdd)
                             {
-                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
                                 var isIncremental = bool.Parse(s.isIncremental.ToString());
+                                if (!isIncremental)
+                                {
+                                    nonIncrementalPrdScans.Add(s);
+                                }
+                            }
+
+                            foreach (var s in nonIncrementalPrdScans)
+                            {
+                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
+                                //var isIncremental = bool.Parse(s.isIncremental.ToString());
+                                var prdProjectName = s["project"].name.ToString();
                                 var scanId = int.Parse(s.id.ToString());
                                 var comment = s.comment.ToString();
                                 var isLocked = bool.Parse(s.isLocked.ToString());
@@ -976,7 +1020,7 @@ namespace CxQA
                                     Match match = regex.Match(comment);
                                     if (!match.Success || true /*ignoreFilter*/)
                                     {
-                                        dt_prd.Rows.Add(false, p_prd[1], scanId, origin, isIncremental, datetime, comment, isLocked);
+                                        dt_prd.Rows.Add(false, prdProjectName, scanId, origin, datetime, comment, isLocked);
                                     }
                                 }
                             }
@@ -1217,7 +1261,7 @@ namespace CxQA
 
                 e.Row.Cells[0].HorizontalAlign = HorizontalAlign.Center;
                 e.Row.Cells[4].HorizontalAlign = HorizontalAlign.Center;
-                e.Row.Cells[7].HorizontalAlign = HorizontalAlign.Center;
+                e.Row.Cells[6].HorizontalAlign = HorizontalAlign.Center;
             }
         }
         protected void prod_scans_RowDataBound(object sender, GridViewRowEventArgs e)
@@ -1231,7 +1275,7 @@ namespace CxQA
 
                 e.Row.Cells[0].HorizontalAlign = HorizontalAlign.Center;
                 e.Row.Cells[4].HorizontalAlign = HorizontalAlign.Center;
-                e.Row.Cells[7].HorizontalAlign = HorizontalAlign.Center;
+                e.Row.Cells[6].HorizontalAlign = HorizontalAlign.Center;
             }
         }
         protected string formatDate(DateTime d)
@@ -1272,7 +1316,7 @@ namespace CxQA
                 String old_initiator = old_scan.initiatorName.ToString();
                 String old_scanOrigin = old_scan.origin.ToString();
                 String old_sourceOrigin = old_scan.scanState.path.ToString().Replace(";", "; ");
-                String old_isIncremental = old_scan.isIncremental.ToString();
+                //String old_isIncremental = old_scan.isIncremental.ToString();
                 String old_comment = old_scan.comment.ToString() == "" ? " " : old_scan.comment.ToString();
                 String old_scanType = old_scan.scanType.value.ToString();
 
@@ -1283,7 +1327,7 @@ namespace CxQA
                 String new_initiator = new_scan.initiatorName.ToString();
                 String new_scanOrigin = new_scan.origin.ToString();
                 String new_sourceOrigin = new_scan.scanState.path.ToString().Replace(";", "; ");
-                String new_isIncremental = new_scan.isIncremental.ToString();
+                //String new_isIncremental = new_scan.isIncremental.ToString();
                 String new_comment = new_scan.comment.ToString() == "" ? " " : new_scan.comment.ToString();
                 String new_scanType = new_scan.scanType.value.ToString();
 
@@ -1341,7 +1385,7 @@ namespace CxQA
                 }
 
                 dt.Rows.Add("Cx Version", old_version, new_version);
-                dt.Rows.Add("Is Incremental", old_isIncremental, new_isIncremental);
+                //dt.Rows.Add("Is Incremental", old_isIncremental, new_isIncremental);
                 dt.Rows.Add("Scan Comment", old_comment, new_comment);
 
                 // Scan queue data is not available in REST API response
