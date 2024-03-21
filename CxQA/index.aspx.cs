@@ -746,12 +746,15 @@ namespace CxQA
                 List<CxCustomField> fields = customFieldsMap[pid];
                 foreach (CxCustomField field in fields)
                 {
-                    values.Append(field.Value);
-                    values.Append(" ");
+                    values.AppendLine(field.Name + " - " + field.Value);
                 }
             }
+            // Replace line breaks with HTML line break tags
+            string formattedValues = values.ToString().Replace(Environment.NewLine, ", ");
+
+
             log.Debug("Adding custom fields [" + values.ToString() + "] to viewstate.");
-            ViewState[ViewStateKeys.CUSTOM_FIELDS] = values.ToString();
+            ViewState[ViewStateKeys.CUSTOM_FIELDS] = formattedValues;
         }
         #endregion
 
