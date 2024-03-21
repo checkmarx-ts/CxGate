@@ -133,6 +133,7 @@
                             </div>
                             <br />
                             <br />
+                            <hr />
                             <strong>
                                 <p style="color: forestgreen;">2.  Select a scan from DEV that you wish to compare.</p>
                             </strong>
