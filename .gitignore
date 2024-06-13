@@ -47,3 +47,6 @@ Ankh.NoLoad
 
 #Other
 .svn
+packages/
+CxQA/.vs/CxQA.csproj.dtbcache.json
+extract/.vs/extract.csproj.dtbcache.json

@@ -7,11 +7,13 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CxQA {
-    
-    
-    public partial class index {
-        
+namespace CxQA
+{
+
+
+    public partial class Index
+    {
+
         /// <summary>
         /// form1 control.
         /// </summary>
@@ -20,25 +22,106 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.HtmlControls.HtmlForm form1;
-        
+
         /// <summary>
-        /// login_form control.
+        /// mainTable control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl login_form;
-        
+        protected global::System.Web.UI.HtmlControls.HtmlTable mainTable;
+
         /// <summary>
-        /// codomain control.
+        /// cxGateVersion control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.DropDownList codomain;
-        
+        protected global::System.Web.UI.WebControls.Label cxGateVersion;
+
+        /// <summary>
+        /// divAccountInfo control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divAccountInfo;
+
+        /// <summary>
+        /// loggedInUser control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Label loggedInUser;
+
+        /// <summary>
+        /// logout control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Button logout;
+
+        /// <summary>
+        /// divErrorMessage control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divErrorMessage;
+
+        /// <summary>
+        /// errorMessage control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Label errorMessage;
+
+        /// <summary>
+        /// divMessageText control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divMessageText;
+
+        /// <summary>
+        /// messageText control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Label messageText;
+
+        /// <summary>
+        /// divLoginForm control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divLoginForm;
+
+        /// <summary>
+        /// authDomainsDropDown control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.DropDownList authDomainsDropDown;
+
         /// <summary>
         /// user control.
         /// </summary>
@@ -47,7 +130,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.TextBox user;
-        
+
         /// <summary>
         /// pass control.
         /// </summary>
@@ -56,7 +139,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.TextBox pass;
-        
+
         /// <summary>
         /// login control.
         /// </summary>
@@ -65,25 +148,16 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Button login;
-        
+
         /// <summary>
-        /// loginerror control.
+        /// divProjectsForm control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Label loginerror;
-        
-        /// <summary>
-        /// projects_form control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl projects_form;
-        
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divProjectsForm;
+
         /// <summary>
         /// details_lbl control.
         /// </summary>
@@ -92,7 +166,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.HtmlControls.HtmlTableCell details_lbl;
-        
+
         /// <summary>
         /// project_list control.
         /// </summary>
@@ -101,7 +175,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.DropDownList project_list;
-        
+
         /// <summary>
         /// details_select control.
         /// </summary>
@@ -110,52 +184,25 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.HtmlControls.HtmlTableCell details_select;
-        
+
         /// <summary>
-        /// extract_param control.
+        /// projectsTeamsList control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.DropDownList extract_param;
-        
+        protected global::System.Web.UI.WebControls.DropDownList projectsTeamsList;
+
         /// <summary>
-        /// alert control.
+        /// divScansForm control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl alert;
-        
-        /// <summary>
-        /// message control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Label message;
-        
-        /// <summary>
-        /// scans_form control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl scans_form;
-        
-        /// <summary>
-        /// error control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Label error;
-        
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divScansForm;
+
         /// <summary>
         /// prd_latest control.
         /// </summary>
@@ -164,7 +211,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.GridView prd_latest;
-        
+
         /// <summary>
         /// project_scans control.
         /// </summary>
@@ -173,7 +220,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.GridView project_scans;
-        
+
         /// <summary>
         /// compare control.
         /// </summary>
@@ -182,16 +229,16 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Button compare;
-        
+
         /// <summary>
-        /// comparison_form control.
+        /// divComparisonForm control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl comparison_form;
-        
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divComparisonForm;
+
         /// <summary>
         /// pdf control.
         /// </summary>
@@ -200,34 +247,34 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Button pdf;
-        
+
         /// <summary>
-        /// goBack control.
+        /// listScans control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Button goBack;
-        
+        protected global::System.Web.UI.WebControls.Button listScans;
+
         /// <summary>
-        /// lows control.
+        /// includeLowsInfoInReport control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.CheckBox lows;
-        
+        protected global::System.Web.UI.WebControls.CheckBox includeLowsInfoInReport;
+
         /// <summary>
-        /// panel control.
+        /// ScanComparePanel control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Panel panel;
-        
+        protected global::System.Web.UI.WebControls.Panel ScanComparePanel;
+
         /// <summary>
         /// comparison control.
         /// </summary>
@@ -236,16 +283,7 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.GridView comparison;
-        
-        /// <summary>
-        /// counts control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.GridView counts;
-        
+
         /// <summary>
         /// not_exploitable control.
         /// </summary>
@@ -254,16 +292,25 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.GridView not_exploitable;
-        
+
         /// <summary>
-        /// report_url control.
+        /// counts control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl report_url;
-        
+        protected global::System.Web.UI.WebControls.GridView counts;
+
+        /// <summary>
+        /// divReportUrl control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divReportUrl;
+
         /// <summary>
         /// url control.
         /// </summary>
@@ -272,5 +319,14 @@ namespace CxQA {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Label url;
+
+        /// <summary>
+        /// divFooter control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divFooter;
     }
 }

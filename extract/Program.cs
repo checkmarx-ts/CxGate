@@ -5,6 +5,11 @@ using extract.CX;
 using System.Data;
 using System.Collections.Generic;
 using System.Net.Mail;
+using System.Net.Http;
+using System.Security.Policy;
+using System.Linq;
+using System.Text;
+using System.Net;
 
 namespace extract
 {
@@ -80,7 +85,7 @@ namespace extract
                             sw.WriteLine("Query,State,Source File,Source Name,Destination File,Destination Name,Query ID,Path ID,Source Line,Destination Line,Deep Link,Project Name,Severity,Query Version,Comments");
                         }
 
-                        foreach (long pid in getProjects(project))
+                        foreach (long pid in getProjectsSOAP(project))
                         {
                             try
                             {
@@ -181,6 +186,8 @@ namespace extract
 
                 SmtpServer.EnableSsl = enableSSL;
 
+                log.Debug(mail.ToString());
+
                 SmtpServer.Send(mail);
             }
             catch(Exception ex)
@@ -190,7 +197,47 @@ namespace extract
             }
         }
 
-        private static List<long> getProjects(string group)
+        // FIXME: Add Json deserialization lib
+        /*
+        private List<long> getProjectsInTeam(long teamId)
+        {
+            List<long> projectIds = new List<long>();
+
+            try
+            {
+                String endpoint = "/cxrestapi/projects?teamId=" + teamId;
+
+                HttpResponseMessage httpResponse = REST_GET(endpoint, token, null);
+                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    dynamic projects = JsonConvert.DeserializeObject(responseString);
+                    foreach (var p in projects)
+                    {
+                        String pid = p.id.ToString();
+                        projectIds.Add(int.Parse(pid));
+                        log.Info("Project added to list to pull last scan:  [" + pid + "] " + p.name.ToString());                        
+                    }
+                }
+                else
+                {
+                    log.Error("GET call to [" + endpoint + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                }
+            }
+            catch (Exception e)
+            {
+                log.Error(e.Message + Environment.NewLine + e.StackTrace);
+            }
+
+            return projectIds;
+        }
+        */
+
+
+
+
+
+        private static List<long> getProjectsSOAP(string group)
         {
             List<long> pIDs = new List<long>();
 
@@ -529,5 +576,40 @@ namespace extract
 
             return "";
         }
+
+        // FIXME: JSON serialization
+        /*
+        private HttpResponseMessage REST_POST(String endpoint, string bearerToken, Dictionary<string, string> parameters)
+        {
+            endpoint = endpoint.StartsWith("/") ? endpoint : ("/" + endpoint);
+            String url = Cxserver + endpoint;
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);
+
+            String json = parameters == null ? String.Empty : JsonConvert.SerializeObject(parameters);
+
+            log.Debug("Executing POST " + url + " with " + json);
+
+            StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
+            return client.PostAsync(url, content).Result;
+        }
+        private HttpResponseMessage REST_GET(String endpoint, string bearerToken, Dictionary<string, string> parameters)
+        {
+            endpoint = endpoint.StartsWith("/") ? endpoint : ("/" + endpoint);
+            if (parameters != null)
+            {
+                endpoint += string.Join("&", parameters.Select(kvp => $"{WebUtility.UrlEncode(kvp.Key)}={WebUtility.UrlEncode(kvp.Value.ToString())}"));
+            }
+            String url = Cxserver + endpoint;
+
+            log.Debug("Executing GET " + url);
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);
+
+            return client.GetAsync(url).Result;
+        }
+        */
     }
 }

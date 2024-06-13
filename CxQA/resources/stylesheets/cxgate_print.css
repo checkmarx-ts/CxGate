@@ -1,0 +1,13 @@
+body {
+	color: dimgray;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 11pt;
+}
+table {
+    page-break-inside: avoid;  
+}
+
+td {
+	padding: 5px;
+	word-break: break-all;
+}
