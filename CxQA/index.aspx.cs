@@ -26,6 +26,7 @@ using System.Windows.Documents;
 using TheArtOfDev.HtmlRenderer.Core;
 using TheArtOfDev.HtmlRenderer.PdfSharp;
 using static OfficeOpenXml.ExcelErrorValue;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using ListItem = System.Web.UI.WebControls.ListItem;
 
 namespace CxQA
@@ -118,6 +119,7 @@ namespace CxQA
         private bool ignoreFilter = false;
         private String jwtToken = String.Empty;
         List<queryName> queryNames = new List<queryName>();
+
         #endregion
 
         public Index()
@@ -293,10 +295,9 @@ namespace CxQA
                 }
             }
         }
+
         protected async Task Login()
         {
-            // if (config.debug) log.Debug("-------->>> Login");
-
             String username = String.Empty;
             try
             {
@@ -306,7 +307,7 @@ namespace CxQA
                     ViewState.Clear();
                 }
 
-                ClearAllMessages();
+                //ClearAllMessages();
 
                 if (authDomainsDropDown.Text.Equals("Application"))
                     username = user.Text;
@@ -316,8 +317,8 @@ namespace CxQA
                 // Default landing operation
                 ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_PROJECTS);
 
-                String refreshToken = await getAuthToken(username, pass.Text);
-
+                    String refreshToken = await getAuthToken(username, pass.Text);
+                
                 ViewState.Add(ViewStateKeys.USERNAME, username);
                 ViewState.Add(ViewStateKeys.TOKEN, refreshToken);
                 // TODO: REMOVE
@@ -327,6 +328,9 @@ namespace CxQA
                 String email = String.Empty;
                 String firstName = "Error";
                 String lastName = "Error";
+
+                lblErrorMessages.Text = "Could not log in as " + username + ". Please try again.";
+                lblErrorMessages.Visible = true;
                 try
                 {
                     if (IsAuthenticated())
@@ -352,17 +356,20 @@ namespace CxQA
                     log.Error("Could not get profile information (name, e-mail address) of logged in user:  " + userProfileJson + Environment.NewLine + exx.StackTrace);
                 }
 
-                // Succesful login
+
+
+
+                // Successful login
                 String userFirstLastName = !String.IsNullOrEmpty(firstName) || !String.IsNullOrEmpty(lastName) ? (lastName + ", " + firstName) : "";
                 loggedInUser.Text = userFirstLastName + "<br/>(" + username + ")";
                 divAccountInfo.Visible = true;
                 log.Info(user.Text + " logged in.");
-
             }
+
             catch (Exception ex)
             {
+                // Log the error
                 log.Error(username + " could not log in:  " + ex.Message + " - " + ex.StackTrace);
-                ShowErrorMessage("Could not log in as " + username + ".  Please try again.");
             }
         }
         protected async Task Logout()
@@ -1333,7 +1340,6 @@ namespace CxQA
                 //String new_isIncremental = new_scan.isIncremental.ToString();
                 String new_comment = new_scan.comment.ToString() == "" ? " " : new_scan.comment.ToString();
                 String new_scanType = new_scan.scanType.value.ToString();
-
                 dt.Rows.Add("Scan ID", scanIDs[0], scanIDs[1]);
                 dt.Rows.Add("Scan Risk", old_risk, new_risk);
                 dt.Rows.Add("LOC", old_LOC, new_LOC);
@@ -1860,6 +1866,9 @@ namespace CxQA
             catch (Exception ex)
             {
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+                lblErrorMessages.Text = ex.Message;
+                lblErrorMessages.Visible = true;
+
             }
 
             return "Error";
@@ -1928,12 +1937,15 @@ namespace CxQA
                 }
                 else
                 {
+                  
                     log.Info(user.Text + " could not log in:  " + login.ErrorMessage);
                     ShowErrorMessage("Could not log in as " + user.Text + ".  Please try again.");
                 }
             }
             else
             {
+                lblErrorMessages.Text = "Could not log in as Please try again.";
+                lblErrorMessages.Visible = true;
                 ShowErrorMessage("Could not log in as " + ViewState[ViewStateKeys.USERNAME] + ".  Please try again.");
             }
         }
@@ -1998,8 +2010,9 @@ namespace CxQA
             }
             catch (Exception ex)
             {
-                ShowErrorMessage("Could not authenticate user [" + un + "].<br/>" + ex.Message);
-                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+                
+             ShowErrorMessage("Could not authenticate user [" + un + "].<br/>" + ex.Message);
+               log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
             return token;
         }

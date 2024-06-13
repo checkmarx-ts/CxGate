@@ -54,44 +54,47 @@
                             <p class="message">
                                 <asp:Label runat="server" ID="messageText" /></p>
                         </div>
-
-                        <div runat="server" id="divLoginForm" visible="true" style="margin: 20px auto; display: grid; justify-content: center; align-items: center;">
-                            <table border="0" width="400px">
-                                <tr>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Domain</strong></td>
-                                    <td>
-                                        <asp:DropDownList runat="server" ID="authDomainsDropDown" /></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Username</strong></td>
-                                    <td>
-                                        <asp:TextBox runat="server" ID="user" Text="admin@cx" /></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Password</strong></td>
-                                    <td>
-                                        <asp:TextBox runat="server" ID="pass" Text="" TextMode="Password" /></td>
-                                </tr>
-                                <tr>
-                                    <td>&nbsp;</td>
-                                    <td>
-                                        <asp:Button runat="server" ID="login" Text="Login" OnClick="UI_EventRouter" /></td>
-                                </tr>
-                                <tr>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                </tr>
-                                <tr>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                </tr>
-                            </table>
-                        </div>
-
+  
+<div runat="server" id="divLoginForm" visible="true" style="margin: 20px auto; display: grid; justify-content: center; align-items: center;">
+                            <div>
+        <asp:Label runat="server" ID="lblErrorMessages" ForeColor="Red" Visible="False"></asp:Label>
+                                </div>
+    <table border="0" width="400px">
+        
+        <tr>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td><strong>Domain</strong></td>
+            <td>
+                <asp:DropDownList runat="server" ID="authDomainsDropDown" /></td>
+        </tr>
+        <tr>
+            <td><strong>Username</strong></td>
+            <td>
+                <asp:TextBox runat="server" ID="user" Text="admin@cx" /></td>
+        </tr>
+        <tr>
+            <td><strong>Password</strong></td>
+            <td>
+                <asp:TextBox runat="server" ID="pass" Text="" TextMode="Password" /></td>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td>
+                <asp:Button runat="server" ID="login" Text="Login" OnClick="UI_EventRouter" /></td>
+        </tr>
+        <tr>
+            <td colspan="2">&nbsp;</td>
+            
+        </tr>
+        <tr>
+            <td colspan="2">&nbsp;</td>
+        </tr>
+    </table>
+</div>
+                            
                         <div runat="server" id="divProjectsForm" visible="false">
                             <br />
                             <table width="100%">
@@ -168,17 +171,29 @@
                             <asp:CheckBox runat="server" ID="includeLowsInfoInReport" AutoPostBack="true" OnCheckedChanged="UI_EventRouter" Text="Include low and informational results" />
                             <br />
                             <br />
+
+
+                           
                             <asp:Panel runat="server" ID="ScanComparePanel">
                                 <div>
                                     <b>Scan Comparison</b>
+                                    <b>Created By</b>
                                     <p />
+
+                                    <asp:GridView runat="server" >
+
+                                    </asp:GridView>
+                                 
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="comparison" AutoGenerateColumns="true" CellPadding="4" CssClass="compareTable" />
                                     <br />
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="not_exploitable" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="not_exploitable_RowDataBound" />
                                     <br />
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="counts" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="counts_RowDataBound" />
+                               
                                 </div>
                             </asp:Panel>
+                                
+
                             <p />
                         </div>
 
