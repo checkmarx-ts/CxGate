@@ -333,13 +333,14 @@ namespace CxQA
 
                 lblErrorMessages.Text = "Your login attempt has failed. Make sure the username and password are correct.";
                 lblErrorMessages.Visible = true;
-                logout.Visible = true;
+                //logout.Visible = true;
                
                 try
                 {
                     if (IsAuthenticated())
                     {
                         jwtToken = await getJWT(refreshToken);
+                        logout.Visible = true;
                     }
 
                     userProfileJson = await getLoggedInProfile();
