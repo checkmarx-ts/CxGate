@@ -1358,7 +1358,7 @@ namespace CxQA
                 dt.Rows.Add("LOC", old_LOC, new_LOC);
                 dt.Rows.Add("Files Count", old_filesCount, new_filesCount);
                 dt.Rows.Add("Project Name", old_project, new_project);
-                dt.Rows.Add("Configuration");
+                //dt.Rows.Add("Configuration");
 
                 Dictionary<String, String> teamsMap = Session[SessionDataKeys.TEAMS] as Dictionary<String, String>;
                 if (teamsMap != null)
