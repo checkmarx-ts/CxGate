@@ -38,12 +38,12 @@
                         <div runat="server" id="divAccountInfo" visible="false" style="display: grid; justify-content: right; align-items: end;">
                             <asp:Label runat="server" ID="loggedInUser" align="right" />
                             <br />
-                            <asp:Button runat="server" ID="logout" Text="Logout" OnClick="UI_EventRouter" />
+                            <asp:Button runat="server" ID="logout" Text="Logout" OnClick="UI_EventRouter" /> 
                         </div>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2">
+                    <td colspan="2"> 
 
                         <div runat="server" id="divErrorMessage" visible="false" style="display: grid; justify-content: center; align-items: center;">
                             <p class="error">
@@ -100,6 +100,7 @@
                             <table width="100%">
                                 <tr>
                                     <td width="50%" align="left"><b>Run CxGate Report</b></td>
+                                    
                                     <!--<td width="50%" align="left" runat="server" id="details_lbl"><b>Vulnerability Details Report</b></td>-->
                                 </tr>
                                 <tr>

@@ -305,6 +305,8 @@ namespace CxQA
                 if (!IsAuthenticated())
                 {
                     ViewState.Clear();
+                    logout.Visible = false;
+                    divAccountInfo.Visible = false;
                 }
 
                 //ClearAllMessages();
@@ -326,11 +328,13 @@ namespace CxQA
 
                 String userProfileJson = String.Empty;
                 String email = String.Empty;
-                String firstName = "Error";
-                String lastName = "Error";
+                String firstName = "";
+                String lastName = "";
 
-                lblErrorMessages.Text = "Could not log in as " + username + ". Please try again.";
+                lblErrorMessages.Text = "Your login attempt has failed. Make sure the username and password are correct.";
                 lblErrorMessages.Visible = true;
+                logout.Visible = true;
+               
                 try
                 {
                     if (IsAuthenticated())
@@ -363,6 +367,7 @@ namespace CxQA
                 String userFirstLastName = !String.IsNullOrEmpty(firstName) || !String.IsNullOrEmpty(lastName) ? (lastName + ", " + firstName) : "";
                 loggedInUser.Text = userFirstLastName + "<br/>(" + username + ")";
                 divAccountInfo.Visible = true;
+             
                 log.Info(user.Text + " logged in.");
             }
 
@@ -983,14 +988,17 @@ namespace CxQA
                             var isLocked = bool.Parse(s.isLocked.ToString());
                             var origin = s.origin.ToString();
 
+                            //modified comments form oldscan
+                            String[] old_latest_comment = comment.Split(new[] { ';' }, 2);
+
                             string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
                                 " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
                             if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                             {
-                                Match match = regex.Match(comment);
+                                Match match = regex.Match(old_latest_comment[0]);
                                 if (!match.Success || ignoreFilter)
                                 {
-                                    dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), comment, isLocked);
+                                    dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), old_latest_comment[0], isLocked);
                                 }
                             }
                         }
@@ -1023,14 +1031,17 @@ namespace CxQA
                                 var isLocked = bool.Parse(s.isLocked.ToString());
                                 var origin = s.origin.ToString();
 
+                                //modify comments to only get latest 
+                                String[] new_latest_comment = comment.Split(new[] { ';' }, 2);
+
                                 string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
                                     " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
                                 if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.baselineScanAge)) > 0 || config.baselineScanAge == 0)
                                 {
-                                    Match match = regex.Match(comment);
+                                    Match match = regex.Match(new_latest_comment[0]);
                                     if (!match.Success || true /*ignoreFilter*/)
                                     {
-                                        dt_prd.Rows.Add(false, prdProjectName, scanId, origin, datetime, comment, isLocked);
+                                        dt_prd.Rows.Add(false, prdProjectName, scanId, origin, datetime, new_latest_comment[0], isLocked);
                                     }
                                 }
                             }
@@ -1329,6 +1340,7 @@ namespace CxQA
                 //String old_isIncremental = old_scan.isIncremental.ToString();
                 String old_comment = old_scan.comment.ToString() == "" ? " " : old_scan.comment.ToString();
                 String old_scanType = old_scan.scanType.value.ToString();
+                
 
                 String new_risk = new_scan.scanRisk.ToString();
                 String new_LOC = new_scan.scanState.linesOfCode.ToString();
@@ -1345,6 +1357,7 @@ namespace CxQA
                 dt.Rows.Add("LOC", old_LOC, new_LOC);
                 dt.Rows.Add("Files Count", old_filesCount, new_filesCount);
                 dt.Rows.Add("Project Name", old_project, new_project);
+                dt.Rows.Add("Configuration");
 
                 Dictionary<String, String> teamsMap = Session[SessionDataKeys.TEAMS] as Dictionary<String, String>;
                 if (teamsMap != null)
@@ -1395,7 +1408,10 @@ namespace CxQA
 
                 dt.Rows.Add("Cx Version", old_version, new_version);
                 //dt.Rows.Add("Is Incremental", old_isIncremental, new_isIncremental);
-                dt.Rows.Add("Scan Comment", old_comment, new_comment);
+                //Trimming comments to the latest one by splitting at the semi-colon
+                String[] old_comment_modified = old_comment.Split(new[] { ';' }, 2);
+                String[] new_comment_modified = new_comment.Split(new[] { ';' }, 2);
+                dt.Rows.Add("Scan Comment", old_comment_modified[0], new_comment_modified[0]);
 
                 // Scan queue data is not available in REST API response
                 // DateTime e = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
