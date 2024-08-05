@@ -5,17 +5,22 @@ using Newtonsoft.Json.Linq;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
+using System.Runtime.Remoting;
 using System.Runtime.Remoting.Contexts;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -112,10 +117,11 @@ namespace CxQA
     public partial class Index : System.Web.UI.Page
     {
         #region Variable declarations
-        private static readonly String VERSION = "3.03";
+        private static readonly String VERSION = "3.04";
         private CxGateConfig config = new CxGateConfig();
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private static readonly String baseline_suffix_p = "_PRD";
+
         private bool ignoreFilter = false;
         private String jwtToken = String.Empty;
         List<queryName> queryNames = new List<queryName>();
@@ -319,8 +325,8 @@ namespace CxQA
                 // Default landing operation
                 ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_PROJECTS);
 
-                    String refreshToken = await getAuthToken(username, pass.Text);
-                
+                String refreshToken = await getAuthToken(username, pass.Text);
+
                 ViewState.Add(ViewStateKeys.USERNAME, username);
                 ViewState.Add(ViewStateKeys.TOKEN, refreshToken);
                 // TODO: REMOVE
@@ -334,7 +340,7 @@ namespace CxQA
                 lblErrorMessages.Text = "Your login attempt has failed. Make sure the username and password are correct.";
                 lblErrorMessages.Visible = true;
                 //logout.Visible = true;
-               
+
                 try
                 {
                     if (IsAuthenticated())
@@ -366,9 +372,16 @@ namespace CxQA
 
                 // Successful login
                 String userFirstLastName = !String.IsNullOrEmpty(firstName) || !String.IsNullOrEmpty(lastName) ? (lastName + ", " + firstName) : "";
-                loggedInUser.Text = userFirstLastName + "<br/>(" + username + ")";
+                loggedInUser.Text = userFirstLastName;
+                //"<br/>(" + username + ")"
                 divAccountInfo.Visible = true;
-             
+
+
+
+
+
+                DataBind();
+
                 log.Info(user.Text + " logged in.");
             }
 
@@ -674,7 +687,7 @@ namespace CxQA
                 ShowErrorMessage("Could not fetch project data from server.<br/>" + e.Message);
                 log.Error(e.Message + Environment.NewLine + e.StackTrace);
             }
-        }        
+        }
         private void GetProjectsAndTeams()
         {
             // if (config.debug) log.Debug("-------->>> GetProjectsAndTeams");
@@ -755,7 +768,7 @@ namespace CxQA
             StringBuilder values = new StringBuilder();
 
             if (customFieldsMap != null && customFieldsMap.ContainsKey(pid))
-            {                
+            {
                 List<CxCustomField> fields = customFieldsMap[pid];
                 foreach (CxCustomField field in fields)
                 {
@@ -793,7 +806,8 @@ namespace CxQA
                     string lastFullScanId = null;
 
                     // Filter and return the ID of the last non-incremental scan
-                    if (scan != null) {
+                    if (scan != null)
+                    {
                         foreach (var s in scan)
                         {
                             var isIncremental = bool.Parse(s.isIncremental.ToString());
@@ -856,6 +870,9 @@ namespace CxQA
             return null;
         }
 
+
+
+
         private dynamic GetScanList(int projectId)
         {
             // if (config.debug) log.Debug("-------->>> GetScanList");
@@ -871,7 +888,7 @@ namespace CxQA
                 if (httpResponse.IsSuccessStatusCode)
                 {
                     log.Debug("Deserializing response string");
-                    return JsonConvert.DeserializeObject(responseString); 
+                    return JsonConvert.DeserializeObject(responseString);
                 }
                 else
                 {
@@ -888,7 +905,7 @@ namespace CxQA
             return null;
         }
 
-        private int GetProjectIdFromCache (String projectName)
+        private int GetProjectIdFromCache(String projectName)
         {
             // if (config.debug) log.Debug("-------->>> GetProjectIdFromCache");
 
@@ -912,6 +929,7 @@ namespace CxQA
 
         private void getScans()
         {
+
             // if (config.debug) log.Debug("-------->>> getScans");
 
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
@@ -927,9 +945,10 @@ namespace CxQA
             divComparisonForm.Visible = false;
 
             string[] p_prd = null;
-            try {
+            try
+            {
 
-                p_prd = getBaselineScan(projectName, baseline_suffix_p); 
+                p_prd = getBaselineScan(projectName, baseline_suffix_p);
             }
             catch { p_prd = null; }
 
@@ -938,7 +957,9 @@ namespace CxQA
                 ClearErrorMessage();
                 divScansForm.Visible = true;
 
+
                 DataTable dt_dev = new DataTable();
+
                 dt_dev.Columns.Add("Compare", typeof(bool));
                 dt_dev.Columns.Add("Project", typeof(string));
                 dt_dev.Columns.Add("Scan ID", typeof(string));
@@ -981,24 +1002,30 @@ namespace CxQA
 
                         foreach (var s in nonIncrementalDevScans)
                         {
+                            DateTime finishedOn = s.dateAndTime.finishedOn;
+                            int scanId = s.id;
+                            string comment = s.comment;
+                            bool isLocked = s.isLocked;
+                            string origin = s.origin;
 
-                            var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
-                            //var isIncremental = bool.Parse(s.isIncremental.ToString());
-                            var scanId = int.Parse(s.id.ToString());
-                            var comment = s.comment.ToString();
-                            var isLocked = bool.Parse(s.isLocked.ToString());
-                            var origin = s.origin.ToString();
+                            // Split the comment
+                            string[] old_latest_comment = comment.Split(new[] { ';' }, 2);
 
-                            //modified comments form oldscan
-                            String[] old_latest_comment = comment.Split(new[] { ';' }, 2);
 
+                            // Format finishedOn as a string (if necessary)
                             string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
-                                " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
+                                 " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
+
                             if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                             {
-                                Match match = regex.Match(old_latest_comment[0]);
-                                if (!match.Success || ignoreFilter)
+                                // Regex to check for "No code changes were detected"
+                                string pattern = @"No code changes were detected";
+                                bool containsPattern = Regex.IsMatch(comment, pattern);
+
+                                // Skip adding the scan if it contains "No code changes were detected"
+                                if (!containsPattern || ignoreFilter)
                                 {
+
                                     dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), old_latest_comment[0], isLocked);
                                 }
                             }
@@ -1024,25 +1051,32 @@ namespace CxQA
 
                             foreach (var s in nonIncrementalPrdScans)
                             {
-                                var finishedOn = DateTime.Parse(s.dateAndTime.finishedOn.ToString());
-                                //var isIncremental = bool.Parse(s.isIncremental.ToString());
-                                var prdProjectName = s["project"].name.ToString();
-                                var scanId = int.Parse(s.id.ToString());
-                                var comment = s.comment.ToString();
-                                var isLocked = bool.Parse(s.isLocked.ToString());
-                                var origin = s.origin.ToString();
+                                DateTime finishedOn = s.dateAndTime.finishedOn;
+                                string prdProjectName = s["project"].name;
+                                int scanId = s.id;
+                                string comment = s.comment;
+                                bool isLocked = s.isLocked;
+                                string origin = s.origin;
 
-                                //modify comments to only get latest 
-                                String[] new_latest_comment = comment.Split(new[] { ';' }, 2);
+                                // Modify comments to only get the latest
+                                string[] new_latest_comment = comment.Split(new[] { ';' }, 2);
+
+
+
+
 
                                 string datetime = finishedOn.Month.ToString("D2") + "/" + finishedOn.Day.ToString("D2") + "/" + finishedOn.Year +
-                                    " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
-                                if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.baselineScanAge)) > 0 || config.baselineScanAge == 0)
+                                 " " + finishedOn.Hour.ToString("D2") + ":" + finishedOn.Minute.ToString("D2") + ":" + finishedOn.Second.ToString("D2");
+                                if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                                 {
                                     Match match = regex.Match(new_latest_comment[0]);
-                                    if (!match.Success || true /*ignoreFilter*/)
+                                    // Check if the latest comment contains "No code changes were detected"
+                                    if (!match.Success || ignoreFilter)
                                     {
-                                        dt_prd.Rows.Add(false, prdProjectName, scanId, origin, datetime, new_latest_comment[0], isLocked);
+
+
+
+                                        dt_prd.Rows.Add(false, prdProjectName, scanId, origin, finishedOn.ToString("MM/dd/yyyy HH:mm:ss"), new_latest_comment[0], isLocked);
                                     }
                                 }
                             }
@@ -1068,7 +1102,7 @@ namespace CxQA
                         String messageStr = String.Empty;
                         String errorStr = String.Empty;
                         if (dt_dev.Rows.Count == 0)
-                            messageStr = "There are no development scans to compare for the selected project.";
+                            messageStr = "There are no development scans to compare for the selected project in the last 30 days.";
                         else if (dt_prd.Rows.Count == 0 && config.baselineScanAge == 0)
                             messageStr = "There are no production scans to compare for the selected project.";
                         else if (dt_prd.Rows.Count == 0)
@@ -1305,7 +1339,86 @@ namespace CxQA
             // if (config.debug) log.Debug("-------->>> formatDate");
             return String.Format("{0:d} {0:t}", d);
         }
-        
+
+
+        public async Task<DateTime> GetQueueDateAsync(int scan)
+        {
+
+            CxPortalWebService SOAPservices = new CxPortalWebService(jwtToken);
+            var scanSummary = await Task.Run(() => SOAPservices.GetScanSummary(null, scan, false));
+            dynamic old_queue_date = scanSummary.ScanQueued;
+            return old_queue_date;
+        }
+
+
+
+        public string QueryVulnerabilites(int scan)
+        {
+            try
+            {
+                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+                CxPortalWebService SOAPservice = new CxPortalWebService(jwtToken);
+                SOAPservice.Url = config.cxserver + "/CxWebInterface/Portal/CxWebService.asmx?WSDL";
+
+                CxWSResponceScanResults results = SOAPservice.GetResultsForScan(ViewState[ViewStateKeys.SOAP_TOKEN].ToString(), scan);
+                List<queryName> oldqsummary = new List<queryName>();
+
+
+                foreach (CxWSSingleResultData r in results.Results)
+                {
+                    string query = Get_Query_Name(scan, r.QueryId);
+                    oldqsummary.Add(new queryName(query, 1));
+                }
+                HashSet<string> resultStrings = new HashSet<string>();
+                foreach (queryName qn in oldqsummary)
+                {
+                    resultStrings.Add(qn.name.ToString());
+                }
+                string combinedResults = string.Join(", ", resultStrings);
+                int maxLineLength = 100; // Adjust this value as needed
+                List<string> lines = new List<string>();
+                StringBuilder currentLine = new StringBuilder();
+
+                foreach (string part in combinedResults.Split(' '))
+                {
+                    if (currentLine.Length + part.Length + 1 > maxLineLength)
+                    {
+                        lines.Add(currentLine.ToString());
+                        currentLine.Clear();
+                    }
+                    if (currentLine.Length > 0)
+                    {
+                        currentLine.Append(" ");
+
+                    }
+                    currentLine.Append(part);
+                }
+                if (currentLine.Length > 0)
+                {
+                    lines.Add(currentLine.ToString());
+                }
+
+                string finalResult = string.Join("\n", lines);
+                return finalResult;
+                //dt.Rows.Add("Vulnerabilities", finalResult); // Add the final formatted string
+            }
+            catch (Exception ex)
+            {
+                return "error";
+            }
+
+
+
+        }
+
+
+
+
+
+
+
+
+
         protected async void getComparison(string[] scanIDs)
         {
             // if (config.debug) log.Debug("-------->>> getComparison");
@@ -1316,11 +1429,40 @@ namespace CxQA
             bool low = includeLowsInfoInReport.Checked;
             DataTable dt = new DataTable();
             dt.Columns.Add(" ", typeof(string));
-            dt.Columns.Add("Previous Scan", typeof(string));
-            dt.Columns.Add("New Scan", typeof(string));
+            dt.Columns.Add("Baseline Scan", typeof(string));
+            dt.Columns.Add("Development Scan", typeof(string));
 
             int oldscan = int.Parse(scanIDs[0]);
             int newscan = int.Parse(scanIDs[1]);
+
+            CxPortalWebService SOAPservices = new CxPortalWebService(jwtToken);
+            dynamic old_queue_date = SOAPservices.GetScanSummary(null, oldscan, false).ScanQueued;
+
+
+            int old_month = old_queue_date.Month;
+            int old_year = old_queue_date.Year;
+            int old_hour = old_queue_date.Hour;
+            int old_day = old_queue_date.Day;
+            int old_minute = old_queue_date.Minute;
+            string period = old_hour >= 12 ? "PM" : "AM";
+            int civilian_hour = old_hour % 12;
+            if (civilian_hour == 0) civilian_hour = 12; // Handle midnight and noon
+
+            string old_scan_formatted_date = $"{old_month}/{old_day:D2}/{old_year} {civilian_hour}:{old_minute:D2} {period}";
+
+
+            dynamic new_queue_date = SOAPservices.GetScanSummary(null, newscan, false).ScanQueued;
+
+            int new_day = new_queue_date.Day;
+            int new_month = new_queue_date.Month;
+            int new_year = new_queue_date.Year;
+            int new_hour = new_queue_date.Hour;
+            int new_minute = new_queue_date.Minute;
+            string periods = new_hour >= 12 ? "PM" : "AM";
+            int civilian_hours = new_hour % 12;
+            if (civilian_hours == 0) civilian_hours = 12; // Handle midnight and noon
+
+            string new_scan_formatted_date = $"{new_month}/{new_day:D2}/{new_year} {civilian_hours}:{new_minute:D2} {periods}";
 
             ViewState["ids"] = oldscan + "_" + newscan;
 
@@ -1330,6 +1472,59 @@ namespace CxQA
             {
                 dynamic old_scan = GetScan(oldscan);
                 dynamic new_scan = GetScan(newscan);
+
+                dynamic old_scan_queue_date = GetProjectScanSettings(int.Parse(old_scan.project.id.ToString()));
+                dynamic new_scan_queue_date = GetProjectScanSettings(int.Parse(new_scan.project.id.ToString()));
+
+                string old_scan_engine_config = old_scan_queue_date.engineConfiguration.id;
+                string new_scan_engine_config = new_scan_queue_date.engineConfiguration.id;
+
+
+                switch (old_scan_engine_config)
+                {
+                    case "1":
+                        old_scan_engine_config = "Default Configuration";
+                        break;
+                    case "2":
+                        old_scan_engine_config = "Japanese (Shift-JIS)";
+                        break;
+                    case "3":
+                        old_scan_engine_config = "Korean";
+                        break;
+                    case "5":
+                        old_scan_engine_config = "Multi-language Scan";
+                        break;
+                    case "6":
+                        old_scan_engine_config = "Fast Scan";
+                        break;
+                    default:
+                        old_scan_engine_config = "Unknown Configuration";
+                        break;
+                }
+
+                switch (new_scan_engine_config)
+                {
+                    case "1":
+                        new_scan_engine_config = "Default Configuration";
+                        break;
+                    case "2":
+                        new_scan_engine_config = "Japanese (Shift-JIS)";
+                        break;
+                    case "3":
+                        new_scan_engine_config = "Korean";
+                        break;
+                    case "5":
+                        new_scan_engine_config = "Multi-language Scan";
+                        break;
+                    case "6":
+                        new_scan_engine_config = "Fast Scan";
+                        break;
+                    default:
+                        new_scan_engine_config = "Unknown Configuration";
+                        break;
+                }
+
+
 
                 String old_risk = old_scan.scanRisk.ToString();
                 String old_LOC = old_scan.scanState.linesOfCode.ToString();
@@ -1341,7 +1536,7 @@ namespace CxQA
                 //String old_isIncremental = old_scan.isIncremental.ToString();
                 String old_comment = old_scan.comment.ToString() == "" ? " " : old_scan.comment.ToString();
                 String old_scanType = old_scan.scanType.value.ToString();
-                
+
 
                 String new_risk = new_scan.scanRisk.ToString();
                 String new_LOC = new_scan.scanState.linesOfCode.ToString();
@@ -1358,7 +1553,7 @@ namespace CxQA
                 dt.Rows.Add("LOC", old_LOC, new_LOC);
                 dt.Rows.Add("Files Count", old_filesCount, new_filesCount);
                 dt.Rows.Add("Project Name", old_project, new_project);
-                //dt.Rows.Add("Configuration");
+                dt.Rows.Add("Configuration", old_scan_engine_config, new_scan_engine_config);
 
                 Dictionary<String, String> teamsMap = Session[SessionDataKeys.TEAMS] as Dictionary<String, String>;
                 if (teamsMap != null)
@@ -1420,8 +1615,12 @@ namespace CxQA
                 // dt.Rows.Add("Scan Queued", e.Year == 1 ? "N/A" : formatDate(e), f.Year == 1 ? "N/A" : formatDate(f));
 
                 DateTime a = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
+
                 DateTime b = DateTime.Parse(new_scan.dateAndTime.startedOn.ToString());
+
+                dt.Rows.Add("Queue Date", old_scan_formatted_date, new_scan_formatted_date);
                 dt.Rows.Add("Scan Start", a.Year == 1 ? "N/A" : formatDate(a), b.Year == 1 ? "N/A" : formatDate(b));
+
 
                 DateTime c = DateTime.Parse(old_scan.dateAndTime.finishedOn.ToString());
                 DateTime d = DateTime.Parse(new_scan.dateAndTime.finishedOn.ToString());
@@ -1444,6 +1643,12 @@ namespace CxQA
                 }
 
                 dt.Rows.Add("Languages", old_lang.Trim().Trim(','), new_lang.Trim().Trim(','));
+
+                //added vulnerabilities 
+
+                string oldscanvuln = QueryVulnerabilites(oldscan);
+                string newscanvuln = QueryVulnerabilites(newscan);
+                dt.Rows.Add("Vulnerabilities", oldscanvuln, newscanvuln);
                 dt.Rows.Add("Custom Field Value(s)", ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString(), ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString());
 
                 comparison.DataSource = dt;
@@ -1458,7 +1663,6 @@ namespace CxQA
             }
 
             //===========GETSCANCOMPARESUMMARY===============
-
             DataTable scst = new DataTable();
             scst.Columns.Add(" ", typeof(string));
             scst.Columns.Add("High", typeof(long));
@@ -1480,7 +1684,9 @@ namespace CxQA
                 log.Info("New Scan:  " + newscan);
 
                 CxWSResponseScanCompareSummary scs = SOAPservice.GetScanCompareSummary(ViewState[ViewStateKeys.SOAP_TOKEN].ToString(), oldscan, newscan);
+
                 if (!low)
+
                 {
                     scst.Rows.Add("New Issues", scs.High.New, scs.Medium.New, (scs.High.New + scs.Medium.New));
                     scst.Rows.Add("Resolved Issues", scs.High.Fixed, scs.Medium.Fixed, (scs.High.Fixed + scs.Medium.Fixed));
@@ -1488,13 +1694,57 @@ namespace CxQA
                 }
                 else
                 {
+
                     scst.Rows.Add("New Issues", scs.High.New, scs.Medium.New, scs.Low.New, scs.Info.New, (scs.High.New + scs.Medium.New + scs.Low.New + scs.Info.New));
                     scst.Rows.Add("Resolved Issues", scs.High.Fixed, scs.Medium.Fixed, scs.Low.Fixed, scs.Info.Fixed, (scs.High.Fixed + scs.Medium.Fixed + scs.Low.Fixed + scs.Info.Fixed));
                     scst.Rows.Add("Recurrent Issues", scs.High.ReOccured, scs.Medium.ReOccured, scs.Low.ReOccured, scs.Info.ReOccured, (scs.High.ReOccured + scs.Medium.ReOccured + scs.Low.ReOccured + scs.Info.ReOccured));
+
                 }
 
                 counts.DataSource = scst;
                 counts.DataBind();
+
+                // change font color dependent on number of vuln
+                foreach (GridViewRow row in counts.Rows)
+                {
+                    if (row.Cells[0].Text == "New Issues")
+                    {
+                        long highNew = Convert.ToInt64(row.Cells[1].Text);
+                        long mediumNew = Convert.ToInt64(row.Cells[2].Text);
+
+                        if (highNew > 0)
+                        {
+                            row.Cells[1].ForeColor = System.Drawing.Color.Red;
+                        }
+
+                        if (mediumNew > 0)
+                        {
+                            row.Cells[2].ForeColor = System.Drawing.Color.Red;
+                        }
+                    }
+
+                    if (row.Cells[0].Text == "Resolved Issues")
+                    {
+                        long highFixed = Convert.ToInt64(row.Cells[1].Text);
+                        long mediumFixed = Convert.ToInt64(row.Cells[2].Text);
+
+                        if (highFixed > 0)
+                        {
+                            row.Cells[1].ForeColor = System.Drawing.Color.Green;
+                        }
+
+                        if (mediumFixed > 0)
+                        {
+                            row.Cells[2].ForeColor = System.Drawing.Color.Green;
+                        }
+                    }
+                }
+
+
+
+
+
+
 
                 divScansForm.Visible = false;
                 divComparisonForm.Visible = true;
@@ -1503,6 +1753,8 @@ namespace CxQA
             {
                 log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
+
+
 
 
             //===========GETRESULTSFORSCAN-NE===============
@@ -1543,6 +1795,7 @@ namespace CxQA
                         }//end switch
 
                         string query = Get_Query_Name(newscan, r.QueryId) + " (" + sev + ")";
+
                         int i = checkList(query, qsummary);
                         if (i != -1)
                             qsummary[i].id++;
@@ -1586,7 +1839,7 @@ namespace CxQA
                 if (httpResponse.IsSuccessStatusCode)
                 {
                     log.Debug("Deserializing response string");
-                    return JsonConvert.DeserializeObject(responseString);                    
+                    return JsonConvert.DeserializeObject(responseString);
                 }
                 else
                 {
@@ -1602,6 +1855,11 @@ namespace CxQA
 
             return null;
         }
+
+
+        //testing OData API integration
+
+
 
         private dynamic GetPresetName(int projectId)
         {
@@ -1702,7 +1960,7 @@ namespace CxQA
                 }
             }
         }
-        
+
         private void createPDFAndLink()
         {
             // if (config.debug) log.Debug("-------->>> createPDFAndLink");
@@ -1756,7 +2014,7 @@ namespace CxQA
                 foreach (PdfSharp.Pdf.PdfPage page in document.Pages)
                 {
                     XGraphics gfx = XGraphics.FromPdfPage(page);
-                    XFont font = new XFont("Verdana", 11, XFontStyle.Regular);
+                    XFont font = new XFont("Verdana", 11);
                     gfx.DrawString("  CxGate Report | " + DateTime.Now + " | Run by:  " + ViewState[ViewStateKeys.USER_EMAIL].ToString(), font, XBrushes.Black, new XRect(0, 0, page.Width, 20), XStringFormats.BottomCenter);
                 }
 
@@ -1913,6 +2171,7 @@ namespace CxQA
             try
             {
                 login = SOAPservice.LoginV2(c, 0, false);
+                Console.WriteLine(login);
                 if (login.IsSuccesfull)
                     return login;
                 else
@@ -1954,7 +2213,7 @@ namespace CxQA
                 }
                 else
                 {
-                  
+
                     log.Info(user.Text + " could not log in:  " + login.ErrorMessage);
                     ShowErrorMessage("Could not log in as " + user.Text + ".  Please try again.");
                 }
@@ -2027,9 +2286,9 @@ namespace CxQA
             }
             catch (Exception ex)
             {
-                
-             ShowErrorMessage("Could not authenticate user [" + un + "].<br/>" + ex.Message);
-               log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
+
+                ShowErrorMessage("Could not authenticate user [" + un + "].<br/>" + ex.Message);
+                log.Error(ex.Message + Environment.NewLine + ex.StackTrace);
             }
             return token;
         }
@@ -2054,11 +2313,11 @@ namespace CxQA
             endpoint = endpoint.StartsWith("/") ? endpoint : ("/" + endpoint);
             String url = config.cxserver + endpoint;
 
-            HttpClient client = new HttpClient();            
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);            
-            
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + bearerToken);
+
             String json = parameters == null ? String.Empty : JsonConvert.SerializeObject(parameters);
-            
+
             if (config.debug) log.Debug("Executing POST " + url + " with " + json);
 
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
