@@ -8,15 +8,15 @@
     <link rel="stylesheet" runat="server" media="screen" href="resources/stylesheets/cxgate.css" />
     <!-- This script is needed to ensure only one radio button can be selected in the scans dropdowns -->
     <script type="text/javascript">
-    function SetUniqueRadioButton(nameregex, current) {
-        for (var i = 0; i < document.forms[0].elements.length; i++) {
-            var e = document.forms[0].elements[i];
-            if (e.type == 'radio' && e.name.match(nameregex)) {
-                e.checked = false;
+        function SetUniqueRadioButton(nameregex, current) {
+            for (var i = 0; i < document.forms[0].elements.length; i++) {
+                var e = document.forms[0].elements[i];
+                if (e.type == 'radio' && e.name.match(nameregex)) {
+                    e.checked = false;
+                }
             }
+            current.checked = true;
         }
-        current.checked = true;
-    }
     </script>
 
 </head>
@@ -89,10 +89,10 @@
             <td colspan="2">&nbsp;</td>
             
         </tr>
-        <tr>
-            <td colspan="2">&nbsp;</td>
-        </tr>
     </table>
+
+    <p />
+    <i>   Works best with Chrome and Firefox</i>
 </div>
                             
                         <div runat="server" id="divProjectsForm" visible="false">
@@ -106,17 +106,20 @@
                                 <tr>
                                     <td align="left">
                                         <asp:DropDownList runat="server" ID="project_list" OnSelectedIndexChanged="UI_EventRouter" AutoPostBack="true" /></td>
+                                    
                                     <!--<td runat="server" id="details_select" align="left" width="85%">
                                         <asp:DropDownList runat="server" ID="projectsTeamsList" OnSelectedIndexChanged="UI_EventRouter" AutoPostBack="true" /></td>-->
                                 </tr>
                             </table>
                             <br />
+    </div>
                         </div>
 
                         <div runat="server" id="divScansForm" visible="false">
                             <strong>
-                                <p style="color: forestgreen;">1.  Select the latest PRD scan.</p>
+                                <p style="color: forestgreen;">1.  Select the recent PRD scan which is prior to the DEV scan</p>
                             </strong>
+                            
                             <div class="withScroll">
                                 <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="prd_latest" AutoGenerateColumns="false" CellPadding="4" OnRowDataBound="prod_scans_RowDataBound" CssClass="scanList">
                                     <Columns>
@@ -164,7 +167,11 @@
                                 <p style="color: forestgreen;">3.  Click to compare the two scans.</p>
                             </strong>
                             <asp:Button ID="compare" Visible="false" runat="server" Text="Compare Scans" OnClick="UI_EventRouter" />
-                        </div>
+                                 <div runat="server" id="div1" visible="true" class="footer">
+                                 <img src="resources/images/footer-logo.jpg" width="100" height="25" />
+                                  </div>
+                                   <div class="border right-border"></div>
+                                    </div>
 
                         <div runat="server" id="divComparisonForm" visible="false">
                             <asp:Button runat="server" ID="pdf" Text="Get Report Link" Visible=" false" OnClick="UI_EventRouter" />
@@ -174,11 +181,13 @@
                             <br />
 
 
-                           
+
                             <asp:Panel runat="server" ID="ScanComparePanel">
                                 <div>
                                     <b>Scan Comparison</b>
                                     <b>Created By</b>
+                                    <asp:Label runat="server" ID="firstUserName" Text='<%# loggedInUser.Text %>'/>
+                                     
                                     <p />
 
                                     <asp:GridView runat="server" >
@@ -187,13 +196,25 @@
                                  
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="comparison" AutoGenerateColumns="true" CellPadding="4" CssClass="compareTable" />
                                     <br />
+                                    
+
+
+                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="counts" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="counts_RowDataBound"/>
+
+                                   
+                                   
+
+                                  
+                                    <br />
                                     <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="not_exploitable" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="not_exploitable_RowDataBound" />
                                     <br />
-                                    <asp:GridView HeaderStyle-BackColor="White" RowStyle-BackColor="White" runat="server" ID="counts" AutoGenerateColumns="true" CellPadding="4" OnRowDataBound="counts_RowDataBound" />
+
                                
                                 </div>
                             </asp:Panel>
-                                
+                       <div runat="server" id="div2" visible="true" class="footer">
+                            <img src="resources/images/footer-logo.jpg"  />
+                                 </div>
 
                             <p />
                         </div>
@@ -209,10 +230,7 @@
     <div class="rightPanel" />
     <p />
     <p />
-    <div runat="server" id="divFooter" visible="false" class="footer">
-        <p />
-        <i>Works best with Chrome and Firefox.</i>
-    </div>
+    <div class="border right-border"></div>
 </body>
 
 
