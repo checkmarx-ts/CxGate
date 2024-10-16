@@ -64,6 +64,9 @@ namespace CxQA
         public static readonly string PROJECT_CUSTOM_FIELDS_MAP = "cx_custom_fields_map";
         public static readonly string CUSTOM_FIELDS = "cx_custom_fields";
         public static readonly string CURRENT_OP = "cx_current_op";
+        public static readonly string PROJECT_PRD_CUSTOM_FIELDS = "cx_custom_prd_fields_map";
+        public static readonly string CUSTOM_FIELDS_PRD = "cx_custom_prd_fields";
+
     }
 
     /// <summary>
@@ -644,7 +647,7 @@ namespace CxQA
                     log.Debug("Looping over projects to add to project list");
                     foreach (var p in projects)
                     {
-                        if (p.name.ToString().ToLower().Contains("_dev"))
+                        if (p.name.ToString().ToLower().Contains("_dev"))///LOOK HERE
                         {
                             string projectIdStr = p.id.ToString();
                             int projectId = int.Parse(projectIdStr);
@@ -674,6 +677,58 @@ namespace CxQA
                             }
                         }
                     }
+                    foreach (var p in projects)
+                    {
+                        if (p.name.ToString().ToLower().Contains("_prd"))///LOOK HERE
+                        {
+                            string projectIdStr = p.id.ToString();
+                            int projectId = int.Parse(projectIdStr);
+
+                           // project_list.Items.Add(new ListItem(p.name.ToString(), projectIdStr));
+
+                            // If the project contains custom field values,
+                            // save them in the session in the CUSTOM_FIELDS key.
+                            if (p.customFields.Count > 0)
+                            {
+                                List<CxCustomField> cxCustomFieldList = new List<CxCustomField>();
+                                foreach (var customField in p.customFields)
+                                {
+                                    CxCustomField cxCustomField = new CxCustomField() { Id = int.Parse(customField.id.ToString()), Name = customField.name.ToString(), Value = customField.value.ToString() };
+                                    log.Debug("Found custom field(s) in project [" + p.name + "]. Custom Field : [" + cxCustomField.Name + "=" + cxCustomField.Value + "]");
+                                    cxCustomFieldList.Add(cxCustomField);
+                                }
+
+                                Dictionary<int, List<CxCustomField>> customFields = new Dictionary<int, List<CxCustomField>>();
+
+                                if (!customFields.ContainsKey(projectId) && cxCustomFieldList.Count > 0)
+                                {
+                                    customFields.Add(projectId, cxCustomFieldList);
+                                }
+                                log.Debug("Adding Custom Field Map to view state.");
+                                ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD] = customFields;
+                            }
+                        }
+                    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                     // Sort first, and then add the 'Select a project or...' entry at the top
                     SortListControl(project_list, true);
@@ -785,6 +840,35 @@ namespace CxQA
             log.Debug("Adding custom fields [" + values.ToString() + "] to viewstate.");
             ViewState[ViewStateKeys.CUSTOM_FIELDS] = formattedValues;
         }
+
+        private void Get_PRD_Project_Properties(int pid)
+        {
+            // if (config.debug) log.Debug("-------->>> Get_Project_Properties");
+
+            log.Debug("<<<<<<< Fetching custom fields");
+            dynamic customFieldsMap = ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD];
+
+            log.Debug("Looking for custom fields from project id " + pid);
+            StringBuilder values = new StringBuilder();
+
+            if (customFieldsMap != null && customFieldsMap.ContainsKey(pid))
+            {
+                List<CxCustomField> fields = customFieldsMap[pid];
+                foreach (CxCustomField field in fields)
+                {
+                    values.AppendLine(field.Name + " - " + field.Value);
+                }
+            }
+            // Replace line breaks with HTML line break tags
+            string formattedValues = values.ToString().Replace(Environment.NewLine, ", ");
+
+
+            log.Debug("Adding custom fields [" + values.ToString() + "] to viewstate.");
+            ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD] = formattedValues;
+        }
+
+
+
         #endregion
 
         #region Scan Data
@@ -1052,7 +1136,9 @@ namespace CxQA
 
                     if (p_prd != null)
                     {
+                        Get_PRD_Project_Properties(int.Parse(p_prd[2]));
                         sdd = GetScanList(int.Parse(p_prd[2]));
+                        
                         if (sdd != null)
                         {
                             dynamic nonIncrementalPrdScans = new JArray();
@@ -1642,16 +1728,11 @@ namespace CxQA
                 }
 
                 dt.Rows.Add("Cx Version", old_version, new_version);
-                //dt.Rows.Add("Is Incremental", old_isIncremental, new_isIncremental);
-                //Trimming comments to the latest one by splitting at the semi-colon
                 String[] old_comment_modified = old_comment.Split(new[] { ';' }, 2);
                 String[] new_comment_modified = new_comment.Split(new[] { ';' }, 2);
                 dt.Rows.Add("Scan Comment", old_comment_modified[0], new_comment_modified[0]);
 
-                // Scan queue data is not available in REST API response
-                // DateTime e = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
-                // DateTime f = DateTime.Parse(new_scan.dateAndTime.startedOn.ToString());
-                // dt.Rows.Add("Scan Queued", e.Year == 1 ? "N/A" : formatDate(e), f.Year == 1 ? "N/A" : formatDate(f));
+                
 
                 DateTime a = DateTime.Parse(old_scan.dateAndTime.startedOn.ToString());
 
@@ -1688,7 +1769,7 @@ namespace CxQA
                 string oldscanvuln = QueryVulnerabilites(oldscan);
                 string newscanvuln = QueryVulnerabilites(newscan);
                 dt.Rows.Add("Vulnerabilities", oldscanvuln, newscanvuln);
-                dt.Rows.Add("Custom Field Value(s)", ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString(), ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString());
+                dt.Rows.Add("Custom Field Value(s)", ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD].ToString(), ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString() == "" ? " " : ViewState[ViewStateKeys.CUSTOM_FIELDS].ToString());
 
                 comparison.DataSource = dt;
                 comparison.DataBind();
