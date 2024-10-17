@@ -23,6 +23,7 @@ using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.UI;
@@ -64,7 +65,7 @@ namespace CxQA
         public static readonly string PROJECT_CUSTOM_FIELDS_MAP = "cx_custom_fields_map";
         public static readonly string CUSTOM_FIELDS = "cx_custom_fields";
         public static readonly string CURRENT_OP = "cx_current_op";
-        public static readonly string PROJECT_PRD_CUSTOM_FIELDS = "cx_custom_prd_fields_map";
+        public static readonly string PROJECT_PRD_CUSTOM_FIELDS_MAP = "cx_custom_prd_fields_map";
         public static readonly string CUSTOM_FIELDS_PRD = "cx_custom_prd_fields";
 
     }
@@ -528,9 +529,8 @@ namespace CxQA
         protected void ListScans()
         {
             // if (config.debug) log.Debug("-------->>> ListScans");
-            bool includeIncrementalScans = Session["IncludeIncrementalScans"] != null && (bool)Session["IncludeIncrementalScans"];
             // Current op
-            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);            
+            ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);   
             getScans();
         }
         #endregion
@@ -625,124 +625,110 @@ namespace CxQA
         #region Project Data
         private void GetProjects()
         {
-            // if (config.debug) log.Debug("-------->>> GetProjects");
-
             if (project_list.Items.Count > 0) return;
 
             try
             {
-                String endpoint = "/cxrestapi/projects";
+                string endpoint = "/cxrestapi/projects";
 
                 log.Debug("Calling GET on " + endpoint);
                 HttpResponseMessage httpResponse = REST_GET("2.2", endpoint, jwtToken, null);
                 log.Debug("Reading response from GET " + endpoint);
-                String responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                string responseString = httpResponse.Content.ReadAsStringAsync().Result;
+
                 if (httpResponse.IsSuccessStatusCode)
                 {
                     log.Debug("Deserializing response string");
                     dynamic projects = JsonConvert.DeserializeObject(responseString);
-                    log.Debug(">>>>>> Adding project to session");
-                    // Save projects in session
+                    log.Debug("Adding projects to session");
                     Session.Add(SessionDataKeys.PROJECTS, projects);
-                    log.Debug("Looping over projects to add to project list");
+
+                    // Initialize custom fields dictionaries
+                    var customFieldsDev = new Dictionary<int, List<CxCustomField>>();
+                    var customFieldsPrd = new Dictionary<int, List<CxCustomField>>();
+
+                    log.Debug("Processing projects");
                     foreach (var p in projects)
                     {
-                        if (p.name.ToString().ToLower().Contains("_dev"))///LOOK HERE
+                        string projectName = p.name.ToString();
+                        string projectNameLower = projectName.ToLower();
+                        string projectIdStr = p.id.ToString();
+                        if (!int.TryParse(projectIdStr, out int projectId))
                         {
-                            string projectIdStr = p.id.ToString();
-                            int projectId = int.Parse(projectIdStr);
-
-                            project_list.Items.Add(new ListItem(p.name.ToString(), projectIdStr));
-
-                            // If the project contains custom field values,
-                            // save them in the session in the CUSTOM_FIELDS key.
-                            if (p.customFields.Count > 0)
-                            {
-                                List<CxCustomField> cxCustomFieldList = new List<CxCustomField>();
-                                foreach (var customField in p.customFields)
-                                {
-                                    CxCustomField cxCustomField = new CxCustomField() { Id = int.Parse(customField.id.ToString()), Name = customField.name.ToString(), Value = customField.value.ToString() };
-                                    log.Debug("Found custom field(s) in project [" + p.name + "]. Custom Field : [" + cxCustomField.Name + "=" + cxCustomField.Value + "]");
-                                    cxCustomFieldList.Add(cxCustomField);
-                                }
-
-                                Dictionary<int, List<CxCustomField>> customFields = new Dictionary<int, List<CxCustomField>>();
-
-                                if (!customFields.ContainsKey(projectId) && cxCustomFieldList.Count > 0)
-                                {
-                                    customFields.Add(projectId, cxCustomFieldList);
-                                }
-                                log.Debug("Adding Custom Field Map to view state.");
-                                ViewState[ViewStateKeys.PROJECT_CUSTOM_FIELDS_MAP] = customFields;
-                            }
+                            log.Error($"Project ID [{projectIdStr}] could not be parsed as an integer.");
+                            continue; // Skip this project if parsing fails
                         }
-                    }
-                    foreach (var p in projects)
-                    {
-                        if (p.name.ToString().ToLower().Contains("_prd"))///LOOK HERE
+
+                        // Check for "_dev" or "_prd" in project name
+                        bool isDev = projectNameLower.Contains("_dev");
+                        bool isPrd = projectNameLower.Contains("_prd");
+
+                        if (isDev || isPrd)
                         {
-                            string projectIdStr = p.id.ToString();
-                            int projectId = int.Parse(projectIdStr);
-
-                           // project_list.Items.Add(new ListItem(p.name.ToString(), projectIdStr));
-
-                            // If the project contains custom field values,
-                            // save them in the session in the CUSTOM_FIELDS key.
-                            if (p.customFields.Count > 0)
+                            // For "_dev" projects, add to project list
+                            if (isDev)
                             {
-                                List<CxCustomField> cxCustomFieldList = new List<CxCustomField>();
+                                project_list.Items.Add(new ListItem(projectName, projectIdStr));
+                            }
+
+
+
+                            // Process custom fields if they exist
+                            if (p.customFields != null && p.customFields.Count > 0)
+                            {
+                                var cxCustomFieldList = new List<CxCustomField>();
                                 foreach (var customField in p.customFields)
                                 {
-                                    CxCustomField cxCustomField = new CxCustomField() { Id = int.Parse(customField.id.ToString()), Name = customField.name.ToString(), Value = customField.value.ToString() };
-                                    log.Debug("Found custom field(s) in project [" + p.name + "]. Custom Field : [" + cxCustomField.Name + "=" + cxCustomField.Value + "]");
+                                    var cxCustomField = new CxCustomField
+                                    {
+                                        Id = int.Parse(customField.id.ToString()),
+                                        Name = customField.name.ToString(),
+                                        Value = customField.value.ToString()
+                                    };
+                                    log.Debug($"Found custom field in project [{projectName}]: [{cxCustomField.Name}={cxCustomField.Value}]");
                                     cxCustomFieldList.Add(cxCustomField);
                                 }
 
-                                Dictionary<int, List<CxCustomField>> customFields = new Dictionary<int, List<CxCustomField>>();
-
-                                if (!customFields.ContainsKey(projectId) && cxCustomFieldList.Count > 0)
+                                if (cxCustomFieldList.Count > 0)
                                 {
-                                    customFields.Add(projectId, cxCustomFieldList);
+                                    if (isDev && !customFieldsDev.ContainsKey(projectId))
+                                    {
+                                        customFieldsDev.Add(projectId, cxCustomFieldList);
+                                    }
+                                    else if (isPrd && !customFieldsPrd.ContainsKey(projectId))
+                                    {
+                                        customFieldsPrd.Add(projectId, cxCustomFieldList);
+                                    }
                                 }
-                                log.Debug("Adding Custom Field Map to view state.");
-                                ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD] = customFields;
                             }
                         }
                     }
 
+                    // Add custom fields dictionaries to ViewState
+                    if (customFieldsDev.Count > 0)
+                    {
+                        log.Debug("Adding DEV custom fields to ViewState");
+                        ViewState[ViewStateKeys.PROJECT_CUSTOM_FIELDS_MAP] = customFieldsDev;
+                    }
+                    if (customFieldsPrd.Count > 0)
+                    {
+                        log.Debug("Adding PRD custom fields to ViewState");
+                        ViewState[ViewStateKeys.PROJECT_PRD_CUSTOM_FIELDS_MAP] = customFieldsPrd;
+                    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    // Sort first, and then add the 'Select a project or...' entry at the top
+                    // Sort and update project list
                     SortListControl(project_list, true);
                     project_list.Items.Insert(0, new ListItem("Select a project...", "-1"));
                 }
                 else
                 {
-                    log.Error("POST call [" + url + "] returned HTTP " + httpResponse.StatusCode + ". " + responseString);
+                    log.Error($"GET call [{endpoint}] returned HTTP {httpResponse.StatusCode}. {responseString}");
                     ShowErrorMessage("Could not fetch project data from server.<br/>Please see log for details.");
                 }
             }
             catch (Exception e)
             {
-                ShowErrorMessage("Could not fetch project data from server.<br/>" + e.Message);
+                ShowErrorMessage($"Could not fetch project data from server.<br/>{e.Message}");
                 log.Error(e.Message + Environment.NewLine + e.StackTrace);
             }
         }
@@ -846,7 +832,7 @@ namespace CxQA
             // if (config.debug) log.Debug("-------->>> Get_Project_Properties");
 
             log.Debug("<<<<<<< Fetching custom fields");
-            dynamic customFieldsMap = ViewState[ViewStateKeys.CUSTOM_FIELDS_PRD];
+            dynamic customFieldsMap = ViewState[ViewStateKeys.PROJECT_PRD_CUSTOM_FIELDS_MAP]; // this is the error
 
             log.Debug("Looking for custom fields from project id " + pid);
             StringBuilder values = new StringBuilder();
@@ -1023,7 +1009,7 @@ namespace CxQA
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);
             if (project_list.SelectedItem.Value.Equals("-1")) return;
 
-            ClearScansGridView();
+            //ClearScansGridView();
 
             String projectName = project_list.SelectedItem.Text;
             int projectId = int.Parse(project_list.SelectedItem.Value);
@@ -1133,7 +1119,7 @@ namespace CxQA
                             }
                         }
                     }
-
+      
                     if (p_prd != null)
                     {
                         Get_PRD_Project_Properties(int.Parse(p_prd[2]));
