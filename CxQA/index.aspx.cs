@@ -121,7 +121,7 @@ namespace CxQA
     public partial class Index : System.Web.UI.Page
     {
         #region Variable declarations
-        private static readonly String VERSION = "3.04";
+        private static readonly String VERSION = "3.05";
         private CxGateConfig config = new CxGateConfig();
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private static readonly String baseline_suffix_p = "_PRD";
