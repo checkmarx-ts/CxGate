@@ -1,5 +1,5 @@
 body {
-	color: black;
+	color: dimgray;
 	font-family: Verdana, Arial, Helvetica, sans-serif;
 	font-size: 0.850em;
 }
@@ -14,12 +14,19 @@ div.mainPanel {
 	border-left:1px solid lightgray;
 	border-right:1px solid lightgray;
 }
-div.footer {
-	margin:0 auto;
-    position:relative;
-	width:400px;
-	border-top:1px solid lightgray;
+.footer {
+	display: flex;
+	justify-content: flex-end; /* Centers horizontally */
+	align-items: center; /* Centers vertically if footer has height */
+	height: 25px;
+	padding-right: 50px;
 }
+
+.footer img {
+	height:25px; 
+	width:100px; 
+}
+
 table{
     page-break-inside: avoid;    
 }
@@ -38,8 +45,6 @@ div.withScroll {
 .compareTable tr td {
 	padding: 5px;
 	word-wrap: break-word;
-	border-collapse: collapse;
-	border: 2px solid #000; 
 }
 .compareTable tr td + td {
 	width: 45% !important;
@@ -78,4 +83,17 @@ p.message
      overflow: hidden;
      padding: 15px 60px;
 	 color: steelblue;
+}
+
+@media (max-width: 600px) {
+	.GridViewColumnClass {
+		width: 100%; /* Stack columns on top of each other on smaller screens */
+	}
+}
+
+@media (min-width: 601px) {
+	.GridViewColumnClass {
+		width: auto; /* Distribute width equally or based on content */
+		flex: 1;
+	}
 }
