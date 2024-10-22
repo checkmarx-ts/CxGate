@@ -93,6 +93,7 @@
 
     <p />
     <i>   Works best with Chrome and Firefox</i>
+          </div>
 </div>
                             
                         <div runat="server" id="divProjectsForm" visible="false">
@@ -113,7 +114,12 @@
                             </table>
                             <br />
     </div>
-                        </div>
+                        </div>    
+    <div runat="server" id="div4" visible="true" class="footer">
+     <img src="resources/images/footer-logo.jpg"  />
+          </div>
+            </div>
+
 
                         <div runat="server" id="divScansForm" visible="false">
                             <strong>
