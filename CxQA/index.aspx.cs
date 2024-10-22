@@ -345,6 +345,9 @@ namespace CxQA
 
                 lblErrorMessages.Text = "Your login attempt has failed. Make sure the username and password are correct.";
                 lblErrorMessages.Visible = true;
+                //div3.Visible = false;
+                div4.Visible = true;
+
                 //logout.Visible = true;
 
                 try
@@ -444,6 +447,7 @@ namespace CxQA
         }
         protected void CompareScans()
         {
+          
             // if (config.debug) log.Debug("-------->>> CompareScans");
 
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
@@ -528,6 +532,7 @@ namespace CxQA
         }
         protected void ListScans()
         {
+            div4.Visible = false;
             // if (config.debug) log.Debug("-------->>> ListScans");
             // Current op
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);   
@@ -2118,23 +2123,33 @@ namespace CxQA
                 // PdfDocument document = PdfGenerator.GeneratePdf(html, config.PageSize, 20, cssData);
                 PdfDocument document = PdfGenerator.GeneratePdf(html.ToString(), pdfConfig.PageSize, 30, cssData);
 
-                foreach (PdfSharp.Pdf.PdfPage page in document.Pages)
+
+                int lastPageIndex = document.PageCount - 1;
+
+                for (int i = 0; i < document.Pages.Count; i++)
                 {
+                    PdfSharp.Pdf.PdfPage page = document.Pages[i];
                     XGraphics gfx = XGraphics.FromPdfPage(page);
                     XFont font = new XFont("Verdana", 11);
                     gfx.DrawString("  CxGate Report | " + DateTime.Now + " | Run by:  " + ViewState[ViewStateKeys.USER_EMAIL].ToString(), font, XBrushes.Black, new XRect(0, 0, page.Width, 20), XStringFormats.BottomCenter);
 
-                    XImage footerImage = XImage.FromFile(footerPath); // Load the footer image
-                    double imageWidth = 100;  // New width in points (1 point = 1/72 inch)
-                    double imageHeight = footerImage.PixelHeight * imageWidth / footerImage.PixelWidth; // Maintain aspect ratio
+                    // If it's the last page, add the footer image
+                    if (i == lastPageIndex)
+                    {
+                        // Adding resized image as footer on the last page (bottom-right)
+                        XImage footerImage = XImage.FromFile(footerPath); // Load the footer image
 
-                    double footerXPosition = page.Width - imageWidth - 20; // 20 points padding from the right
-                    double footerYPosition = page.Height - imageHeight - 10; // 20 points padding from the bottom
+                        // Define custom width and height for the footer image
+                        double imageWidth = 100;  // New width in points
+                        double imageHeight = footerImage.PixelHeight * imageWidth / footerImage.PixelWidth; // Maintain aspect ratio
 
-                    // Draw the image at the bottom-right corner with the new width and height
-                    gfx.DrawImage(footerImage, footerXPosition, footerYPosition, imageWidth, imageHeight);
+                        // Calculate X and Y position for the footer image (bottom-right)
+                        double footerXPosition = page.Width - imageWidth - 20; // 20 points padding from the right
+                        double footerYPosition = page.Height - imageHeight - 20; // 20 points padding from the bottom
 
-
+                        // Draw the image at the bottom-right corner with the new width and height
+                        gfx.DrawImage(footerImage, footerXPosition, footerYPosition, imageWidth, imageHeight);
+                    }
                 }
 
                 String filename = ViewState["ids"].ToString() + ".pdf";
