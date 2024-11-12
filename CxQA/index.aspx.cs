@@ -1165,18 +1165,17 @@ namespace CxQA
                                 if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                                 {
                                     // Regex to check for "No code changes were detected"
-                                    string pattern = @"No code changes were detected";
-                                    bool containsPattern = Regex.IsMatch(comment, pattern);
+                                    //string pattern = @"No code changes were detected";
+                                    //bool containsPattern = Regex.IsMatch(comment, pattern);
 
                                     // Skip adding the scan if it contains "No code changes were detected"
                                     //Match match = regex.Match(old_latest_comment[0]);
-                                    if (!containsPattern || ignoreFilter)
-                                    {
+                                    
 
 
 
                                         dt_prd.Rows.Add(false, prdProjectName, scanId, origin, finishedOn.ToString("MM/dd/yyyy HH:mm:ss"), new_latest_comment[0], isLocked, incremental);
-                                    }
+                                    
                                 }
                             }
                         }
