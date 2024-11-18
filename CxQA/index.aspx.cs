@@ -208,6 +208,8 @@ namespace CxQA
             // Populate the drop down 
             authDomainsDropDown.Items.Clear();
             authDomainsDropDown.Items.Add("Application");
+            authDomainsDropDown.Items.Add(new ListItem("BSG.AD.ADP.COM", "BSG.AD.ADP.COM"));
+            authDomainsDropDown.SelectedValue = "BSG.AD.ADP.COM";
             if (!String.IsNullOrEmpty(config.domain))
                 authDomainsDropDown.Items.Add(config.domain.ToUpper());
             else
