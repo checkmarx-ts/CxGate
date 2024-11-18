@@ -1119,7 +1119,7 @@ namespace CxQA
                                 if (!containsPattern || ignoreFilter)
                                 {
 
-                                    dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), old_latest_comment[0], isLocked, incremental);
+                                    dt_dev.Rows.Add(false, projectName, scanId, origin, finishedOn.ToString("MM/dd/yyyy HH:mm:ss"), old_latest_comment[0], isLocked, incremental);
                                 }
                             }
                         }
