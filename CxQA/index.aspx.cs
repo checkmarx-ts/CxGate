@@ -190,7 +190,8 @@ namespace CxQA
                 if (!IsPostBack)
                 {
                     if (authDomainsDropDown.Items.Count == 0)
-                        PopulateDomainDropDown();
+                        
+                    PopulateDomainDropDown();
                     ShowLoginForm();
                 }
             }
@@ -207,6 +208,7 @@ namespace CxQA
 
             // Populate the drop down 
             authDomainsDropDown.Items.Clear();
+            
             authDomainsDropDown.Items.Add("Application");
             authDomainsDropDown.Items.Add(new ListItem("BSG.AD.ADP.COM", "BSG.AD.ADP.COM"));
             authDomainsDropDown.SelectedValue = "BSG.AD.ADP.COM";

@@ -204,6 +204,15 @@ namespace CxQA
         protected global::System.Web.UI.WebControls.DropDownList projectsTeamsList;
 
         /// <summary>
+        /// div4 control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl div4;
+
+        /// <summary>
         /// divScansForm control.
         /// </summary>
         /// <remarks>
@@ -238,6 +247,15 @@ namespace CxQA
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Button compare;
+
+        /// <summary>
+        /// div1 control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl div1;
 
         /// <summary>
         /// divComparisonForm control.
@@ -285,6 +303,15 @@ namespace CxQA
         protected global::System.Web.UI.WebControls.Panel ScanComparePanel;
 
         /// <summary>
+        /// firstUserName control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Label firstUserName;
+
+        /// <summary>
         /// comparison control.
         /// </summary>
         /// <remarks>
@@ -292,6 +319,15 @@ namespace CxQA
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.GridView comparison;
+
+        /// <summary>
+        /// counts control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.GridView counts;
 
         /// <summary>
         /// not_exploitable control.
@@ -303,13 +339,13 @@ namespace CxQA
         protected global::System.Web.UI.WebControls.GridView not_exploitable;
 
         /// <summary>
-        /// counts control.
+        /// div2 control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.GridView counts;
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl div2;
 
         /// <summary>
         /// divReportUrl control.
@@ -328,14 +364,5 @@ namespace CxQA
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Label url;
-
-        /// <summary>
-        /// divFooter control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl divFooter;
     }
 }
