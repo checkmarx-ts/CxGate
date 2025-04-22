@@ -190,7 +190,8 @@ namespace CxQA
                 if (!IsPostBack)
                 {
                     if (authDomainsDropDown.Items.Count == 0)
-                        PopulateDomainDropDown();
+                        
+                    PopulateDomainDropDown();
                     ShowLoginForm();
                 }
             }
@@ -207,7 +208,10 @@ namespace CxQA
 
             // Populate the drop down 
             authDomainsDropDown.Items.Clear();
+            
             authDomainsDropDown.Items.Add("Application");
+            authDomainsDropDown.Items.Add(new ListItem("BSG.AD.ADP.COM", "BSG.AD.ADP.COM"));
+            authDomainsDropDown.SelectedValue = "BSG.AD.ADP.COM";
             if (!String.IsNullOrEmpty(config.domain))
                 authDomainsDropDown.Items.Add(config.domain.ToUpper());
             else
@@ -345,6 +349,9 @@ namespace CxQA
 
                 lblErrorMessages.Text = "Your login attempt has failed. Make sure the username and password are correct.";
                 lblErrorMessages.Visible = true;
+                //div3.Visible = false;
+                div4.Visible = true;
+
                 //logout.Visible = true;
 
                 try
@@ -444,6 +451,7 @@ namespace CxQA
         }
         protected void CompareScans()
         {
+          
             // if (config.debug) log.Debug("-------->>> CompareScans");
 
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.COMPARE_SCANS);
@@ -528,6 +536,7 @@ namespace CxQA
         }
         protected void ListScans()
         {
+            div4.Visible = false;
             // if (config.debug) log.Debug("-------->>> ListScans");
             // Current op
             ViewState.Add(ViewStateKeys.CURRENT_OP, CxGateOp.LIST_SCANS);   
@@ -1114,7 +1123,7 @@ namespace CxQA
                                 if (!containsPattern || ignoreFilter)
                                 {
 
-                                    dt_dev.Rows.Add(false, projectName, scanId, origin, getEngineFinishTime(finishedOn), old_latest_comment[0], isLocked, incremental);
+                                    dt_dev.Rows.Add(false, projectName, scanId, origin, finishedOn.ToString("MM/dd/yyyy HH:mm:ss"), old_latest_comment[0], isLocked, incremental);
                                 }
                             }
                         }
@@ -1160,18 +1169,17 @@ namespace CxQA
                                 if (DateTime.Parse(datetime).CompareTo(DateTime.Now.AddDays(-1 * config.devScanAge)) > 0 || config.devScanAge == 0)
                                 {
                                     // Regex to check for "No code changes were detected"
-                                    string pattern = @"No code changes were detected";
-                                    bool containsPattern = Regex.IsMatch(comment, pattern);
+                                    //string pattern = @"No code changes were detected";
+                                    //bool containsPattern = Regex.IsMatch(comment, pattern);
 
                                     // Skip adding the scan if it contains "No code changes were detected"
                                     //Match match = regex.Match(old_latest_comment[0]);
-                                    if (!containsPattern || ignoreFilter)
-                                    {
+                                    
 
 
 
                                         dt_prd.Rows.Add(false, prdProjectName, scanId, origin, finishedOn.ToString("MM/dd/yyyy HH:mm:ss"), new_latest_comment[0], isLocked, incremental);
-                                    }
+                                    
                                 }
                             }
                         }
@@ -2118,23 +2126,33 @@ namespace CxQA
                 // PdfDocument document = PdfGenerator.GeneratePdf(html, config.PageSize, 20, cssData);
                 PdfDocument document = PdfGenerator.GeneratePdf(html.ToString(), pdfConfig.PageSize, 30, cssData);
 
-                foreach (PdfSharp.Pdf.PdfPage page in document.Pages)
+
+                int lastPageIndex = document.PageCount - 1;
+
+                for (int i = 0; i < document.Pages.Count; i++)
                 {
+                    PdfSharp.Pdf.PdfPage page = document.Pages[i];
                     XGraphics gfx = XGraphics.FromPdfPage(page);
                     XFont font = new XFont("Verdana", 11);
                     gfx.DrawString("  CxGate Report | " + DateTime.Now + " | Run by:  " + ViewState[ViewStateKeys.USER_EMAIL].ToString(), font, XBrushes.Black, new XRect(0, 0, page.Width, 20), XStringFormats.BottomCenter);
 
-                    XImage footerImage = XImage.FromFile(footerPath); // Load the footer image
-                    double imageWidth = 100;  // New width in points (1 point = 1/72 inch)
-                    double imageHeight = footerImage.PixelHeight * imageWidth / footerImage.PixelWidth; // Maintain aspect ratio
+                    // If it's the last page, add the footer image
+                    if (i == lastPageIndex)
+                    {
+                        // Adding resized image as footer on the last page (bottom-right)
+                        XImage footerImage = XImage.FromFile(footerPath); // Load the footer image
 
-                    double footerXPosition = page.Width - imageWidth - 20; // 20 points padding from the right
-                    double footerYPosition = page.Height - imageHeight - 10; // 20 points padding from the bottom
+                        // Define custom width and height for the footer image
+                        double imageWidth = 100;  // New width in points
+                        double imageHeight = footerImage.PixelHeight * imageWidth / footerImage.PixelWidth; // Maintain aspect ratio
 
-                    // Draw the image at the bottom-right corner with the new width and height
-                    gfx.DrawImage(footerImage, footerXPosition, footerYPosition, imageWidth, imageHeight);
+                        // Calculate X and Y position for the footer image (bottom-right)
+                        double footerXPosition = page.Width - imageWidth - 20; // 20 points padding from the right
+                        double footerYPosition = page.Height - imageHeight - 20; // 20 points padding from the bottom
 
-
+                        // Draw the image at the bottom-right corner with the new width and height
+                        gfx.DrawImage(footerImage, footerXPosition, footerYPosition, imageWidth, imageHeight);
+                    }
                 }
 
                 String filename = ViewState["ids"].ToString() + ".pdf";
